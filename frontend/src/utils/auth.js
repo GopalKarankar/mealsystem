@@ -29,5 +29,5 @@ export function isTokenValid() {
 
 export function logout() {
   removeToken()
-  window.location.href = '/login'
+  window.location.href = '/'
 }
