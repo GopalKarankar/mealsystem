@@ -25,8 +25,8 @@ function calculateMacroPercentages(totals) {
 
 function getMacroColor(macroName) {
   const colors = {
-    protein: '#F97316',   // Orange
-    carbs: '#3B82F6',     // Blue
+    protein: '#FF7043',   // Brand orange
+    carbs: '#0369A1',     // Info blue
     fats: '#D97706',      // Gold
     fiber: '#A8B8A8',     // Gray-green
   };
@@ -35,8 +35,14 @@ function getMacroColor(macroName) {
 
 function getConfidenceColor(score) {
   if (score > 0.90) return '#2E7D32';  // Green
-  if (score >= 0.70) return '#F97316'; // Orange
-  return '#D32F2F';                    // Red
+  if (score >= 0.70) return '#FF7043'; // Brand orange
+  return '#D64444';                    // Error red
+}
+
+function getConfidenceTintClass(score) {
+  if (score > 0.90) return 'bg-green-100 text-green-700';
+  if (score >= 0.70) return 'bg-orange-100 text-orange-700';
+  return 'bg-rose-100 text-rose-700';
 }
 
 function formatMacroBreakdown(totals) {

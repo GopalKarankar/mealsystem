@@ -21,10 +21,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    cd meal-system
    ```
 
-2. **Create PostgreSQL database** (via Docker):
-   ```bash
-   docker run -d --name meal-postgres -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16
-   ```
+2. **Install PostgreSQL locally** and create the database:
+   
+   **On Windows**:
+   - Download the installer from [postgresql.org](https://www.postgresql.org/download/windows/) or run: `winget install PostgreSQL.PostgreSQL`
+   - During installation, note the password you set for the `postgres` superuser
+   - After installation, create the database: `createdb -U postgres meal_system`
+   
+   **On macOS**:
+   - Install: `brew install postgresql@16`
+   - Start the service: `brew services start postgresql@16`
+   - Create the database: `createdb meal_system`
+   
+   **On Linux (Debian/Ubuntu)**:
+   - Install: `apt-get install postgresql postgresql-contrib`
+   - Start the service: `sudo systemctl start postgresql`
+   - Create the database: `sudo -u postgres createdb meal_system`
 
 3. **Backend setup**:
    ```bash
@@ -44,9 +56,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    ```bash
    # Copy example and update values
    cp .env.example .env
-   # Edit .env with your API keys and database URL:
-   # DATABASE_URL=postgresql://postgres:postgres@localhost:5432/meal_system
    ```
+   
+   Edit `.env` with your PostgreSQL connection details and API keys:
+   - `DB_HOST` — PostgreSQL server host (default: `localhost`)
+   - `DB_PORT` — PostgreSQL server port (default: `5432`)
+   - `DB_USER` — PostgreSQL username (default: `postgres`)
+   - `DB_PASSWORD` — PostgreSQL password you set during installation
+   - `DB_NAME` — Database name (default: `meal_system`)
 
 5. **Run migrations**:
    ```bash
@@ -63,7 +80,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Backend** (`.env`):
 - `SECRET_KEY` — Django secret key (generate: `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`)
 - `DEBUG` — Set to `False` in production
-- `DATABASE_URL` — PostgreSQL connection string (default: `postgresql://postgres:postgres@localhost:5432/meal_system`)
+- `DB_NAME` — PostgreSQL database name (default: `meal_system`)
+- `DB_USER` — PostgreSQL username (default: `postgres`)
+- `DB_PASSWORD` — PostgreSQL password you set during installation
+- `DB_HOST` — PostgreSQL server host (default: `localhost`)
+- `DB_PORT` — PostgreSQL server port (default: `5432`)
 - `GROQ_API_KEY` — Groq API key (get free key from console.groq.com, used for Llama LLM parsing)
 - `LLM_MODEL` — Groq model ID (default: `openai/gpt-oss-120b`)
 - `NVIDIA_API_KEY` — NVIDIA API key (get from [build.nvidia.com](https://build.nvidia.com), used for Parakeet ASR)
@@ -598,9 +619,13 @@ def test_google_login_invalid_token():
 - Login again to get fresh token (7-day expiry via accounts/jwt.py)
 
 ### "Cannot connect to PostgreSQL"
-- Check Docker container is running: `docker ps | grep meal-postgres`
-- Verify `DATABASE_URL` in `.env` matches container's port/name
-- Test locally: `psql postgresql://postgres:postgres@localhost:5432/meal_system`
+- Verify PostgreSQL server is running:
+  - On Windows: Check Services (services.msc) for "postgresql-x64-16" running
+  - On macOS: `brew services list | grep postgresql`
+  - On Linux: `sudo systemctl status postgresql`
+- Test server connectivity: `pg_isready -h localhost -p 5432`
+- Verify `.env` has correct `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`
+- Test database connection: `psql -U postgres -h localhost -d meal_system`
 - Backend fails fast at startup with a connection error if DB is unreachable
 
 ### Google OAuth Troubleshooting

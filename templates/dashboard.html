@@ -3,56 +3,47 @@
 {% block title %}Dashboard - Meal Tracker{% endblock %}
 
 {% block content %}
-<div class="min-h-screen bg-gray-50">
-  <!-- Navbar -->
-  <nav class="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">
-    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-      <div class="flex items-center">
-        <span class="text-2xl" role="img" aria-label="Fork and plate">🍽️</span>
-        <span class="ml-2 text-xl font-bold tracking-tight text-gray-900">Meal Tracker</span>
-      </div>
-      <button onclick="logout()" class="text-sm font-medium text-gray-600 hover:text-gray-900">Logout</button>
-    </div>
-  </nav>
+<div class="min-h-screen bg-cream">
+  {% include "partials/_navbar.html" with show_logout=True %}
 
   <!-- Main Content -->
   <main class="max-w-4xl mx-auto px-4 py-8">
     <!-- Date Selector -->
     <div class="mb-8">
-      <label class="block text-sm font-medium text-gray-900 mb-2">Select Date</label>
+      <label class="block text-sm font-medium text-heading mb-2">Select Date</label>
       <input
         type="date"
         id="date-picker"
-        class="px-4 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+        class="px-4 py-2 border border-gray-300 rounded-lg text-heading focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2"
       />
     </div>
 
     <!-- Audio Recorder -->
-    <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
-      <h2 class="text-lg font-semibold text-gray-900 mb-4">Record Meal</h2>
+    <div class="bg-white rounded-2xl shadow-card p-6 mb-8">
+      <h2 class="text-lg font-semibold text-heading mb-4">Record Meal</h2>
       <div class="flex gap-4">
         <button
           id="record-btn"
           type="button"
-          class="px-6 py-3 min-h-11 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          class="px-6 py-3 min-h-11 bg-brand-orange text-white font-medium rounded-full shadow-card hover:shadow-hover hover:brightness-95 transition-all focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 flex items-center gap-2"
         >
           🎤 Record
         </button>
-        <div id="record-status" class="flex items-center text-sm text-gray-600"></div>
+        <div id="record-status" class="flex items-center text-sm text-body"></div>
       </div>
     </div>
 
     <!-- Daily Summary -->
     <div class="mb-8">
-      <h2 class="text-lg font-semibold text-gray-900 mb-4">Daily Summary</h2>
+      <h2 class="text-lg font-semibold text-heading mb-4">Daily Summary</h2>
       <div id="daily-summary" class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <!-- Will be populated by dashboard.js -->
       </div>
     </div>
 
     <!-- Macro Chart -->
-    <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
-      <h2 class="text-lg font-semibold text-gray-900 mb-4">Macro Breakdown</h2>
+    <div class="bg-white rounded-2xl shadow-card p-6 mb-8">
+      <h2 class="text-lg font-semibold text-heading mb-4">Macro Breakdown</h2>
       <div class="flex justify-center">
         <canvas id="macro-chart-canvas" width="300" height="300" style="max-width: 100%;"></canvas>
       </div>
@@ -60,7 +51,7 @@
 
     <!-- Meals List -->
     <div class="mb-8">
-      <h2 class="text-lg font-semibold text-gray-900 mb-4">Meals</h2>
+      <h2 class="text-lg font-semibold text-heading mb-4">Meals</h2>
       <div id="meals-list">
         <!-- Will be populated by dashboard.js -->
       </div>

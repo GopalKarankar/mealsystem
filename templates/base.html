@@ -4,26 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Meal Tracker{% endblock %}</title>
-    <link href="https://cdn.tailwindcss.com" rel="stylesheet">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700;800&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-orange': '#FF7043',
+                        heading: '#263238',
+                        body: '#546E7A',
+                        cream: '#FFFDF9',
+                        'cream-alt': '#FAF3EB',
+                        error: '#D64444',
+                        success: '#2E7D32',
+                    },
+                    fontFamily: {
+                        sans: ['Roboto', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Helvetica', 'Arial', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        card: '0 2px 8px rgba(0,0,0,0.08)',
+                        hover: '0 4px 12px rgba(0,0,0,0.12)',
+                        modal: '0 8px 24px rgba(0,0,0,0.15)',
+                    },
+                },
+            },
+        };
+    </script>
+
+    <!-- Chart.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <style>
-        :root {
-            --color-primary-white: #FFFFFF;
-            --color-primary-black: #1A1A1A;
-            --color-primary-gray: #F5F5F5;
-            --color-border-light: #E0E0E0;
-            --color-macro-protein: #F97316;
-            --color-macro-carbs: #3B82F6;
-            --color-macro-fats: #D97706;
-            --color-macro-fiber: #A8B8A8;
-            --color-status-success: #2E7D32;
-            --color-status-warning: #F97316;
-            --color-status-error: #D32F2F;
-            --color-status-info: #3B82F6;
-        }
-    </style>
 </head>
-<body class="bg-primary-gray">
+<body class="bg-cream font-sans">
     {% block content %}{% endblock %}
 
     <!-- Core JS files -->

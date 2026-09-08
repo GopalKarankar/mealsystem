@@ -22,8 +22,8 @@ class MacroChart {
       labels: ['Protein', 'Carbs', 'Fats'],
       datasets: [{
         data: [proteinCals, carbsCals, fatsCals],
-        backgroundColor: ['#F97316', '#3B82F6', '#D97706'],
-        borderColor: ['#EA580C', '#1E40AF', '#B45309'],
+        backgroundColor: ['#FF7043', '#0369A1', '#D97706'],
+        borderColor: ['#E64A19', '#075985', '#B45309'],
         borderWidth: 2,
       }],
     };
