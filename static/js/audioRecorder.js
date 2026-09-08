@@ -105,26 +105,21 @@ class AudioRecorder {
         const result = await apiPostFile('/meals/voice', formData);
         onSuccess(result);
       } catch (error) {
-        // Parse error response
-        let errorMessage = 'Failed to process audio';
+        // apiPostFile already attaches the parsed backend response as error.status/error.body
+        let errorMessage = error.body && error.body.detail;
 
-        if (error.message.includes('413')) {
-          errorMessage = 'Recording too long. Maximum 25MB.';
-        } else if (error.message.includes('422')) {
-          errorMessage = 'Could not understand the recording. Please try again with a clearer voice.';
-        } else if (error.message.includes('400')) {
-          errorMessage = 'Unsupported audio format.';
-        } else if (error.message.includes('503')) {
-          errorMessage = 'Speech recognition service unavailable.';
-        }
-
-        try {
-          const data = await error.json();
-          if (data.detail) {
-            errorMessage = data.detail;
+        if (!errorMessage) {
+          if (error.status === 413) {
+            errorMessage = 'Recording too long. Maximum 25MB.';
+          } else if (error.status === 422) {
+            errorMessage = 'Could not understand the recording. Please try again with a clearer voice.';
+          } else if (error.status === 400) {
+            errorMessage = 'Unsupported audio format.';
+          } else if (error.status === 503) {
+            errorMessage = 'Speech recognition service unavailable.';
+          } else {
+            errorMessage = 'Failed to process audio';
           }
-        } catch (e) {
-          // Error parsing response, use default message
         }
 
         onError(new Error(errorMessage));

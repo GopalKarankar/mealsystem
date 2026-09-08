@@ -65,7 +65,7 @@ def transcribe(audio_file_path: str) -> str:
         recognition_config.encoding = AudioEncoding.LINEAR_PCM
         recognition_config.sample_rate_hertz = framerate
         recognition_config.language_code = settings.NVIDIA_ASR_LANGUAGE_CODE
-        recognition_config.max_alternative = 1
+        recognition_config.max_alternatives = 1
 
         response = asr_service.offline_recognize(audio_data, recognition_config)
 

@@ -1,11 +1,14 @@
 import pytest
 import json
 from datetime import datetime, timedelta
-from django.test import Client
+from unittest.mock import patch
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import Client, override_settings
 from django.utils import timezone
 from accounts.models import User
 from meals.models import Meal, MealItem
 from accounts.jwt import create_access_token
+from meals.services.llm_service import LLMServiceError
 
 
 @pytest.mark.django_db
@@ -280,3 +283,72 @@ class TestMealEndpoints:
         assert data['original_text'] == 'Updated meal'
         assert len(data['meal_items']) == 1
         assert data['meal_items'][0]['item_name'] == 'banana'
+
+    def test_voice_no_file_provided(self):
+        """Test voice upload requires a 'file' field."""
+        response = self.client.post('/meals/voice', {}, **self.headers)
+        assert response.status_code == 400
+        assert 'No audio file' in response.json()['detail']
+
+    def test_voice_unsupported_extension(self):
+        """Test voice upload rejects disallowed audio formats."""
+        audio = SimpleUploadedFile('recording.txt', b'not audio', content_type='text/plain')
+        response = self.client.post('/meals/voice', {'file': audio}, **self.headers)
+        assert response.status_code == 400
+        assert 'Unsupported audio format' in response.json()['detail']
+
+    @override_settings(MAX_AUDIO_SIZE_MB=0)
+    def test_voice_file_too_large(self):
+        """Test voice upload rejects files over the configured size limit."""
+        audio = SimpleUploadedFile('recording.wav', b'x' * 100, content_type='audio/wav')
+        response = self.client.post('/meals/voice', {'file': audio}, **self.headers)
+        assert response.status_code == 413
+
+    @patch('meals.services.meal_service.parse_meal')
+    @patch('meals.services.meal_service.transcribe')
+    def test_voice_no_items_identified_returns_422(self, mock_transcribe, mock_parse_meal):
+        """Test voice upload returns 422 when no food items can be identified."""
+        mock_transcribe.return_value = "um"
+        mock_parse_meal.return_value = []
+
+        audio = SimpleUploadedFile('recording.wav', b'fake wav bytes', content_type='audio/wav')
+        response = self.client.post('/meals/voice', {'file': audio}, **self.headers)
+        assert response.status_code == 422
+        assert 'No food items could be identified' in response.json()['detail']
+
+    @patch('meals.services.meal_service.parse_meal')
+    @patch('meals.services.meal_service.transcribe')
+    def test_voice_llm_service_error_returns_503(self, mock_transcribe, mock_parse_meal):
+        """Test voice upload returns 503 when the LLM service fails."""
+        mock_transcribe.return_value = "I ate a banana"
+        mock_parse_meal.side_effect = LLMServiceError("Groq API unavailable")
+
+        audio = SimpleUploadedFile('recording.wav', b'fake wav bytes', content_type='audio/wav')
+        response = self.client.post('/meals/voice', {'file': audio}, **self.headers)
+        assert response.status_code == 503
+        assert 'Groq API unavailable' in response.json()['detail']
+
+    @patch('meals.services.meal_service.parse_meal')
+    @patch('meals.services.meal_service.transcribe')
+    def test_voice_success_creates_meal(self, mock_transcribe, mock_parse_meal):
+        """Test successful voice upload creates a meal with parsed items."""
+        mock_transcribe.return_value = "I ate a banana"
+        mock_parse_meal.return_value = [
+            {
+                'item_name': 'banana',
+                'quantity': 1,
+                'unit': 'medium',
+                'calories': 89,
+                'protein_g': 1.09,
+                'carbs_g': 22.84,
+                'fats_g': 0.33,
+            }
+        ]
+
+        audio = SimpleUploadedFile('recording.wav', b'fake wav bytes', content_type='audio/wav')
+        response = self.client.post('/meals/voice', {'file': audio}, **self.headers)
+        assert response.status_code == 201
+        data = response.json()
+        assert len(data['meal_items']) == 1
+        assert data['meal_items'][0]['item_name'] == 'banana'
+        assert Meal.objects.filter(user=self.user).count() == 1
