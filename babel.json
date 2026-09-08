@@ -1,6 +1,13 @@
 {
   "stories": [],
   "versions": [],
-  "backups": [],
+  "backups": [
+    {
+      "timestamp": 1788868632362,
+      "localPath": "...\\Documents\\Babel\\babel-2026-09-08.backup.zip",
+      "cloudProviders": [],
+      "id": "43d4aa17-a13e-4cde-8552-be5b9015798e"
+    }
+  ],
   "activity": []
 }

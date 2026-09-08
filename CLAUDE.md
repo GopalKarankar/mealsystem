@@ -389,15 +389,68 @@ Full spec: See [SPEC.md](./SPEC.md) § 5 (API Specification)
 ## Design System
 
 **Colors** (defined in `frontend/src/styles/variables.css`):
-- **Macros**: Orange (#F97316) = Protein, Blue (#3B82F6) = Carbs, Gold (#D97706) = Fats
-- **Status**: Green (#2E7D32) = Success, Red (#D32F2F) = Error, Amber (#F97316) = Warning
-- **Base**: White (#FFFFFF) text on Deep Black (#1A1A1A)
+- **Brand accent**: Orange (#FF7043) — primary color for buttons, active states, highlights, and logo wordmark
+- **Text**:
+  - Heading: #263238 (dark gray, 700+ weight for contrast)
+  - Body/secondary: #546E7A (medium gray, regular weight)
+  - On orange: #FFFFFF (white, for button text and light overlays)
+- **Backgrounds**:
+  - Page default: #FFFDF9 (warm off-white, very light cream)
+  - Section alternate: #FAF3EB (warmer cream, for repeated blocks)
+  - Neutral/disabled: #F3F4F6 (light gray, for inputs and inactive states)
+  - Card: #FFFFFF (white, with soft shadow)
+- **Category/macro tints** (60% opacity background + 700-weight dark text for badges and chips):
+  - Protein/meals: #FFEDD5 background / #C2410C text
+  - Water/hydration: #E0F2FE background / #0369A1 text
+  - Weight/alerts: #FFE4E6 background / #BE123C text
+- **Status**:
+  - Error/validation: #D64444 (solid red, no tint)
+  - Success: #2E7D32 (kept for compatibility with existing logic; refine to match accent if needed)
+  - Info: #0369A1 (blue, from water tint)
 
-**Spacing** (8px grid): xs=4px, sm=8px, md=16px, lg=24px, xl=32px
+**Typography**:
+- Font family: Roboto, sans-serif (no serifs)
+- Weight scale:
+  - 400 (regular): body text, labels
+  - 700 (bold): category chips, secondary labels
+  - 800 (extra-bold): logo wordmark "Track" and "Intake"
+- Sizing: Responsive; heading (H1) is 36px on desktop, scaled down on mobile
 
-**Components**: Use Tailwind classes with custom colors; refer to Tailwind config for brand colors.
+**Spacing** (8px grid, **unchanged from current**):
+- xs=4px, sm=8px, md=16px, lg=24px, xl=32px
 
-Full design system: See [SPEC.md](./SPEC.md) § 3 (Visual Design System)
+**Border radius**:
+- Pill shapes (filter chips, circular avatars, FABs): `border-radius: 50%` / Tailwind `rounded-full`
+- Card corners: `border-radius: 16px` / Tailwind `rounded-2xl`
+- Card header top corners only: `border-radius: 12px 12px 0px 0px` / custom
+- Form inputs: `border-radius: 8px` / Tailwind `rounded-sm`
+
+**Shadows**:
+- Card/lift effect: `0 2px 8px rgba(0, 0, 0, 0.08)` (soft, subtle)
+- Hover/active elevation: `0 4px 12px rgba(0, 0, 0, 0.12)` (slightly darker/larger)
+- Modal/overlay shadow: `0 8px 24px rgba(0, 0, 0, 0.15)` (deep shadow for overlays)
+(These already exist in `variables.css` and can be kept unchanged.)
+
+**Key component patterns**:
+- **Logo/wordmark**: Bipartite: "Track" in bold orange (#FF7043), "Intake" in bold dark (#263238). No emoji or icon.
+- **Floating action buttons**: Two fixed circular FABs (bottom-right corner), orange background, white icons, 32px diameter, soft shadow.
+- **Filter/category pills**: Outlined (light gray #F3F4F6 background, dark text) when inactive; solid orange (#FF7043) background, white text when active. Rounded-full.
+- **Stat cards**: Column layout, white background (#FFFFFF), rounded-2xl corners, soft shadow. Icon in orange-tinted chip (top-right), numeric value in orange accent, descriptive label in body gray.
+- **Avatar**: Circular (rounded-full), orange background, white initials text (no photo).
+- **Water/meal tracker**: Cards stacked, each with icon, macro breakdown, timestamp. Tinted category chip for the food/water type.
+- **Section dividers**: Wavy SVG ornaments between major sections (decorative, not load-bearing for semantics).
+
+**Design principles**:
+- Warm, inviting aesthetic: cream backgrounds with orange accent create a friendly, approachable feel.
+- Accessible contrast: heading #263238 on cream #FFFDF9 meets 4.5:1 WCAG AA standard; body text #546E7A on same background meets 3:1.
+- Rounded, soft corners everywhere (no sharp edges): fosters trust and calm.
+- Orange (#FF7043) as the single call-to-action color: all primary CTAs and active states use this to guide user attention.
+
+**Related files**:
+- `frontend/src/styles/variables.css` — CSS custom properties for colors, shadows, transitions
+- `frontend/tailwind.config.js` — Tailwind theme extensions (colors, borderRadius, boxShadow)
+- `frontend/src/components/layout/Navbar.jsx` — logo wordmark ("Track" + "Intake")
+- `frontend/src/pages/Login.jsx` — background, card styling
 
 ---
 

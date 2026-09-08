@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Meal Tracker{% endblock %}</title>
+    <link href="https://cdn.tailwindcss.com" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --color-primary-white: #FFFFFF;
+            --color-primary-black: #1A1A1A;
+            --color-primary-gray: #F5F5F5;
+            --color-border-light: #E0E0E0;
+            --color-macro-protein: #F97316;
+            --color-macro-carbs: #3B82F6;
+            --color-macro-fats: #D97706;
+            --color-macro-fiber: #A8B8A8;
+            --color-status-success: #2E7D32;
+            --color-status-warning: #F97316;
+            --color-status-error: #D32F2F;
+            --color-status-info: #3B82F6;
+        }
+    </style>
+</head>
+<body class="bg-primary-gray">
+    {% block content %}{% endblock %}
+
+    <!-- Core JS files -->
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/apiClient.js"></script>
+    <script src="/static/js/formatting.js"></script>
+    <script src="/static/js/nutrition.js"></script>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

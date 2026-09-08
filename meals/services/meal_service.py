@@ -1,0 +1,197 @@
+import logging
+import os
+from datetime import datetime, timedelta
+from django.utils import timezone
+
+from .whisper_service import transcribe
+from .llm_service import parse_meal, LLMServiceError
+from .nutrition_service import validate_macros
+from ..models import Meal, MealItem
+
+logger = logging.getLogger(__name__)
+
+ALLOWED_AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".webm"}
+
+
+def get_confidence_badge(score: float) -> str:
+    """Return a confidence badge color based on the score."""
+    if score > 0.90:
+        return "green"
+    elif score >= 0.70:
+        return "orange"
+    else:
+        return "red"
+
+
+def calculate_daily_totals(meals: list) -> dict:
+    """Calculate daily totals from a list of Meal objects."""
+    totals = {
+        "calories": 0.0,
+        "protein_g": 0.0,
+        "carbs_g": 0.0,
+        "fats_g": 0.0,
+        "fiber_g": 0.0,
+    }
+    for meal in meals:
+        for item in meal.meal_items.all():
+            totals["calories"] += item.calories
+            totals["protein_g"] += item.protein_g
+            totals["carbs_g"] += item.carbs_g
+            totals["fats_g"] += item.fats_g
+            totals["fiber_g"] += item.fiber_g
+    return totals
+
+
+def calculate_confidence_distribution(meals: list) -> dict:
+    """Calculate confidence distribution from a list of Meal objects."""
+    if not meals:
+        return {"high": 0, "medium": 0, "low": 0}
+
+    high = sum(1 for m in meals if m.confidence_score > 0.90)
+    medium = sum(1 for m in meals if 0.70 <= m.confidence_score <= 0.90)
+    low = sum(1 for m in meals if m.confidence_score < 0.70)
+    total = len(meals)
+
+    return {
+        "high": round(100 * high / total, 1) if total > 0 else 0,
+        "medium": round(100 * medium / total, 1) if total > 0 else 0,
+        "low": round(100 * low / total, 1) if total > 0 else 0,
+    }
+
+
+def get_user_meals(user, date: str | None = None, limit: int | None = None):
+    """Get user's meals, optionally filtered by date."""
+    query = Meal.objects.filter(user=user)
+
+    if date:
+        try:
+            parsed_date = datetime.strptime(date, "%Y-%m-%d").date()
+            start = timezone.make_aware(datetime.combine(parsed_date, datetime.min.time()))
+            end = start + timedelta(days=1)
+            query = query.filter(created_at__gte=start, created_at__lt=end)
+        except ValueError:
+            raise ValueError("date must be in YYYY-MM-DD format")
+
+    query = query.order_by("-created_at")
+    if limit is not None:
+        query = query[:limit]
+
+    return list(query)
+
+
+def create_meal_from_audio(user, audio_path: str) -> Meal:
+    """Create a meal from an audio file."""
+    try:
+        transcript = transcribe(audio_path)
+        raw_items = parse_meal(transcript)
+
+        validated = []
+        for raw in raw_items:
+            try:
+                from ..serializers import MealItemCreateSerializer
+                serializer = MealItemCreateSerializer(data=raw)
+                if serializer.is_valid():
+                    validated.append(serializer.validated_data)
+                else:
+                    logger.warning("Dropping unparseable item from LLM output: %r, errors: %s", raw, serializer.errors)
+            except Exception as e:
+                logger.warning("Error validating item %r: %s", raw, e)
+
+        result = validate_macros(validated)
+        for w in result["warnings"]:
+            logger.warning("macro validation: %s", w)
+
+        corrected_items = result["corrected_items"]
+        if not corrected_items:
+            raise ValueError(
+                "No food items could be identified in the audio. Please try again with a clearer description of what you ate."
+            )
+
+        confidence_score = sum(i.get("confidence", 0.85) for i in corrected_items) / len(corrected_items)
+
+        meal = Meal.objects.create(
+            user=user,
+            original_text=transcript,
+            transcription_text=transcript,
+            parsed_at=timezone.now(),
+            confidence_score=confidence_score,
+        )
+
+        for item_data in corrected_items:
+            MealItem.objects.create(
+                meal=meal,
+                item_name=item_data["item_name"],
+                quantity=item_data["quantity"],
+                unit=item_data.get("unit", "serving"),
+                serving_size_grams=item_data.get("serving_size_grams"),
+                calories=item_data["calories"],
+                protein_g=item_data["protein_g"],
+                carbs_g=item_data["carbs_g"],
+                fats_g=item_data["fats_g"],
+                fiber_g=item_data.get("fiber_g", 0),
+                confidence=item_data.get("confidence", 0.85),
+                source=item_data.get("source") or "llm_estimate",
+                llm_generated=True,
+            )
+
+        return meal
+
+    finally:
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+
+
+def replace_meal_items(meal: Meal, payload_data: dict) -> Meal:
+    """Replace meal items and recalculate confidence score."""
+    from ..serializers import MealItemCreateSerializer
+
+    validated = []
+    for raw in payload_data.get("meal_items", []):
+        try:
+            serializer = MealItemCreateSerializer(data=raw)
+            if serializer.is_valid():
+                validated.append(serializer.validated_data)
+            else:
+                logger.warning("Dropping unparseable item in PATCH: %r, errors: %s", raw, serializer.errors)
+        except Exception as e:
+            logger.warning("Error validating item in PATCH %r: %s", raw, e)
+
+    result = validate_macros(validated)
+    for w in result["warnings"]:
+        logger.warning("macro validation in PATCH: %s", w)
+
+    corrected_items = result["corrected_items"]
+    if not corrected_items:
+        raise ValueError("Cannot update meal with zero items; delete it instead.")
+
+    confidence_score = sum(i.get("confidence", 0.85) for i in corrected_items) / len(corrected_items)
+
+    # Delete old items
+    meal.meal_items.all().delete()
+
+    # Create new items
+    for item_data in corrected_items:
+        MealItem.objects.create(
+            meal=meal,
+            item_name=item_data["item_name"],
+            quantity=item_data["quantity"],
+            unit=item_data.get("unit", "serving"),
+            serving_size_grams=item_data.get("serving_size_grams"),
+            calories=item_data["calories"],
+            protein_g=item_data["protein_g"],
+            carbs_g=item_data["carbs_g"],
+            fats_g=item_data["fats_g"],
+            fiber_g=item_data.get("fiber_g", 0),
+            confidence=item_data.get("confidence", 0.85),
+            source="llm_estimate",
+            llm_generated=True,
+        )
+
+    # Update meal metadata
+    if payload_data.get("original_text"):
+        meal.original_text = payload_data["original_text"]
+
+    meal.confidence_score = confidence_score
+    meal.save()
+
+    return meal
