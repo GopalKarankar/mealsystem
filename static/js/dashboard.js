@@ -21,7 +21,7 @@ class Dashboard {
 
     this.isLoading = true;
     try {
-      const data = await apiGet(`/dashboard?date=${this.selectedDate}`);
+      const data = await apiGet(`/meals/dashboard?date=${this.selectedDate}`);
       this.meals = data.meals || [];
       this.dailyTotals = data.daily_totals || {
         calories: 0,
