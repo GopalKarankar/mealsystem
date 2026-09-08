@@ -107,6 +107,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - Choose **Web application**
    - Add authorized JavaScript origins:
      - `http://localhost:8000` (dev frontend)
+     - `http://127.0.0.1:8000` (dev frontend, via 127.0.0.1)
      - `http://localhost` (dev fallback)
    - Add authorized redirect URIs:
      - `http://localhost:8000/login` (dev backend)

@@ -102,6 +102,8 @@
     google.accounts.id.initialize({
       client_id: '{{ google_client_id }}',
       callback: handleCredentialResponse,
+      use_fedcm_for_prompt: true,
+      use_fedcm_for_button: true,
     });
 
     google.accounts.id.renderButton(
