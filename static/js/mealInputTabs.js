@@ -84,6 +84,10 @@ function switchTab(button) {
   document.querySelectorAll('[role="tab"]').forEach(tab => {
     tab.setAttribute('aria-selected', 'false');
     tab.setAttribute('tabindex', '-1');
+    // Remove active styling (orange underline and text)
+    tab.classList.remove('border-brand-orange', 'text-brand-orange');
+    // Add inactive styling (transparent border and body gray text)
+    tab.classList.add('border-transparent', 'text-body');
   });
   document.querySelectorAll('[role="tabpanel"]').forEach(p => {
     p.classList.add('hidden');
@@ -92,6 +96,9 @@ function switchTab(button) {
   // Activate clicked tab and show its panel
   button.setAttribute('aria-selected', 'true');
   button.setAttribute('tabindex', '0');
+  // Add active styling (orange underline and text)
+  button.classList.remove('border-transparent', 'text-body');
+  button.classList.add('border-brand-orange', 'text-brand-orange');
   panel.classList.remove('hidden');
 }
 
