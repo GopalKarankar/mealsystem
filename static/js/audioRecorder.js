@@ -109,7 +109,9 @@ class AudioRecorder {
         let errorMessage = error.body && error.body.detail;
 
         if (!errorMessage) {
-          if (error.status === 413) {
+          if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+            errorMessage = 'Request timed out. Please try again.';
+          } else if (error.status === 413) {
             errorMessage = 'Recording too long. Maximum 25MB.';
           } else if (error.status === 422) {
             errorMessage = 'Could not understand the recording. Please try again with a clearer voice.';

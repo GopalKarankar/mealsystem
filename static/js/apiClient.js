@@ -20,7 +20,7 @@ async function apiRequest(endpoint, options = {}) {
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+  const timeoutId = setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), API_TIMEOUT);
 
   try {
     const response = await fetch(
@@ -92,7 +92,7 @@ async function apiPostFile(endpoint, formData) {
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+  const timeoutId = setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), API_TIMEOUT);
 
   try {
     const response = await fetch(

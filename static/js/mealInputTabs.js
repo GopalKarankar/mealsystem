@@ -194,8 +194,12 @@ async function handlePhotoSubmit() {
   } catch (error) {
     let message = error.body?.detail || error.message || 'Failed to scan photo';
 
+    // Handle timeout/abort errors
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+      message = 'Request timed out. Please try again.';
+    }
     // Map HTTP status codes to friendly messages
-    if (error.status === 413) {
+    else if (error.status === 413) {
       message = 'Photo is too large. Maximum 10MB.';
     } else if (error.status === 422) {
       message = 'Could not identify food in the photo. Please try a clearer photo.';

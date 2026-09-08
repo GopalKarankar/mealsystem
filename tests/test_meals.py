@@ -470,12 +470,25 @@ class TestMealEndpoints:
 
     @patch('meals.services.meal_service.parse_meal')
     @patch('meals.services.meal_service.scan_image')
-    def test_image_vision_service_error_returns_503(self, mock_scan_image, mock_parse_meal):
-        """Test image endpoint handles vision service errors."""
-        mock_scan_image.side_effect = ValueError("Photo scanning failed: timeout")
+    def test_image_validation_error_returns_422(self, mock_scan_image, mock_parse_meal):
+        """Test image endpoint returns 422 for non-transient vision errors (validation/auth)."""
+        mock_scan_image.side_effect = ValueError("Could not extract any description from the photo")
         img = SimpleUploadedFile('photo.png', b'\x89PNG\r\n\x1a\n' + b'fake png', content_type='image/png')
         response = self.client.post('/meals/image', {'file': img}, **self.headers)
         assert response.status_code == 422
+        data = response.json()
+        assert "Could not extract" in data['detail']
+
+    @patch('meals.services.meal_service.parse_meal')
+    @patch('meals.services.meal_service.scan_image')
+    def test_image_transient_error_returns_503(self, mock_scan_image, mock_parse_meal):
+        """Test image endpoint returns 503 for transient vision service errors (capacity/rate limit)."""
+        mock_scan_image.side_effect = LLMServiceError("Vision service is currently overloaded; please try again shortly")
+        img = SimpleUploadedFile('photo.png', b'\x89PNG\r\n\x1a\n' + b'fake png', content_type='image/png')
+        response = self.client.post('/meals/image', {'file': img}, **self.headers)
+        assert response.status_code == 503
+        data = response.json()
+        assert "overloaded" in data['detail'].lower()
 
     @patch('meals.services.meal_service.parse_meal')
     @patch('meals.services.meal_service.scan_image')
