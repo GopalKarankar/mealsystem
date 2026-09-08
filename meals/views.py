@@ -9,15 +9,19 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 from .models import Meal, MealItem
-from .serializers import MealSerializer, MealUpdateSerializer, DashboardSerializer
+from .serializers import MealSerializer, MealUpdateSerializer, DashboardSerializer, MealTextInputSerializer
 from .services.meal_service import (
     create_meal_from_audio,
+    create_meal_from_text,
+    create_meal_from_image,
     get_user_meals,
     replace_meal_items,
     get_confidence_badge,
     calculate_daily_totals,
     calculate_confidence_distribution,
     ALLOWED_AUDIO_EXTENSIONS,
+    ALLOWED_IMAGE_EXTENSIONS,
+    sniff_image_extension,
 )
 from .services.llm_service import LLMServiceError
 from django.conf import settings
@@ -93,6 +97,122 @@ class CreateMealVoiceView(APIView):
             logger.exception("Error in voice upload: %s", e)
             return Response(
                 {"detail": "Failed to process audio"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        finally:
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
+
+
+class CreateMealTextView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = MealTextInputSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {"detail": "Please enter a description of what you ate (max 2000 characters)."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        text = serializer.validated_data['text']
+
+        try:
+            meal = create_meal_from_text(request.user, text)
+        except LLMServiceError as e:
+            logger.error("LLM service failure: %s", e)
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        except ValueError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+        except Exception:
+            logger.exception("Unexpected error processing text meal")
+            return Response(
+                {"detail": "Failed to process text"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return Response(MealSerializer(meal).data, status=status.HTTP_201_CREATED)
+
+
+class CreateMealImageView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if 'file' not in request.FILES:
+            return Response(
+                {"detail": "No image file provided"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        file = request.FILES['file']
+        ext = os.path.splitext(file.name or "")[1].lower()
+
+        if ext not in ALLOWED_IMAGE_EXTENSIONS:
+            return Response(
+                {"detail": f"Unsupported image format '{ext}'. Allowed: jpg, jpeg, png, webp"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        max_bytes = settings.MAX_IMAGE_SIZE_MB * 1024 * 1024
+        if file.size > max_bytes:
+            return Response(
+                {"detail": f"Image exceeds {settings.MAX_IMAGE_SIZE_MB}MB limit"},
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            )
+
+        sniffed_ext = sniff_image_extension(file)
+        if sniffed_ext is None:
+            return Response(
+                {"detail": "File does not appear to be a valid image"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+        temp_path = os.path.join(
+            settings.UPLOAD_DIR,
+            f"{request.user.id}_{uuid.uuid4().hex}{sniffed_ext}"
+        )
+
+        try:
+            with open(temp_path, 'wb') as f:
+                for chunk in file.chunks():
+                    f.write(chunk)
+
+            try:
+                meal = create_meal_from_image(request.user, temp_path)
+            except LLMServiceError as e:
+                logger.error("LLM service failure: %s", e)
+                return Response(
+                    {"detail": str(e)},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE
+                )
+            except ValueError as e:
+                return Response(
+                    {"detail": str(e)},
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY
+                )
+            except Exception:
+                logger.exception("Unexpected error processing image meal")
+                return Response(
+                    {"detail": "Failed to process image"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            return Response(MealSerializer(meal).data, status=status.HTTP_201_CREATED)
+
+        except Exception:
+            logger.exception("Error in image upload")
+            return Response(
+                {"detail": "Failed to process image"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
         finally:

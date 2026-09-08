@@ -126,10 +126,12 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Custom settings
 UPLOAD_DIR = os.environ.get('UPLOAD_DIR', BASE_DIR / 'temp_audio')
 MAX_AUDIO_SIZE_MB = int(os.environ.get('MAX_AUDIO_SIZE_MB', 25))
+MAX_IMAGE_SIZE_MB = int(os.environ.get('MAX_IMAGE_SIZE_MB', 10))
 
 # Groq and LLM settings
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 LLM_MODEL = os.environ.get('LLM_MODEL', 'openai/gpt-oss-120b')
+LLM_VISION_MODEL = os.environ.get('LLM_VISION_MODEL', 'qwen/qwen3.8-27b')
 
 # NVIDIA Parakeet settings
 NVIDIA_API_KEY = os.environ.get('NVIDIA_API_KEY', '')

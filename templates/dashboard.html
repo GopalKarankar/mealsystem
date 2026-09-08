@@ -18,18 +18,76 @@
       />
     </div>
 
-    <!-- Audio Recorder -->
+    <!-- Add a Meal (Tabbed UI) -->
     <div class="bg-white rounded-2xl shadow-card p-6 mb-8">
-      <h2 class="text-lg font-semibold text-heading mb-4">Record Meal</h2>
-      <div class="flex gap-4">
-        <button
-          id="record-btn"
-          type="button"
-          class="px-6 py-3 min-h-11 bg-brand-orange text-white font-medium rounded-full shadow-card hover:shadow-hover hover:brightness-95 transition-all focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 flex items-center gap-2"
-        >
-          🎤 Record
-        </button>
-        <div id="record-status" class="flex items-center text-sm text-body"></div>
+      <h2 class="text-lg font-semibold text-heading mb-4">Add a Meal</h2>
+
+      <!-- Tab List -->
+      <div id="input-tabs" role="tablist" aria-label="Meal input method" class="flex gap-2 mb-4 border-b border-gray-200">
+        <button type="button" role="tab" id="tab-record" aria-controls="panel-record" aria-selected="true"
+          class="input-tab px-4 py-3 min-h-11 font-medium text-sm border-b-2 border-brand-orange text-brand-orange focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 rounded-t"
+          data-target="record">🎤 Record</button>
+        <button type="button" role="tab" id="tab-type" aria-controls="panel-type" aria-selected="false" tabindex="-1"
+          class="input-tab px-4 py-3 min-h-11 font-medium text-sm border-b-2 border-transparent text-body hover:text-heading focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 rounded-t"
+          data-target="type">⌨️ Type</button>
+        <button type="button" role="tab" id="tab-photo" aria-controls="panel-photo" aria-selected="false" tabindex="-1"
+          class="input-tab px-4 py-3 min-h-11 font-medium text-sm border-b-2 border-transparent text-body hover:text-heading focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 rounded-t"
+          data-target="photo">📷 Photo</button>
+      </div>
+
+      <!-- Record Panel -->
+      <div id="panel-record" role="tabpanel" aria-labelledby="tab-record" class="input-panel">
+        <div class="flex gap-4">
+          <button
+            id="record-btn"
+            type="button"
+            class="px-6 py-3 min-h-11 bg-brand-orange text-white font-medium rounded-full shadow-card hover:shadow-hover hover:brightness-95 transition-all focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 flex items-center gap-2"
+          >
+            🎤 Record
+          </button>
+          <div id="record-status" class="flex items-center text-sm text-body"></div>
+        </div>
+      </div>
+
+      <!-- Type Panel -->
+      <div id="panel-type" role="tabpanel" aria-labelledby="tab-type" class="input-panel hidden">
+        <label for="type-textarea" class="sr-only">Describe what you ate</label>
+        <textarea id="type-textarea" rows="3" maxlength="2000" placeholder="e.g. Two scrambled eggs with toast and a coffee"
+          class="w-full px-4 py-3 border border-gray-300 rounded-lg text-heading focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 resize-none"></textarea>
+        <div class="flex items-center justify-between mt-3">
+          <div id="type-status" class="text-sm text-body"></div>
+          <button id="type-submit-btn" type="button"
+            class="px-6 py-3 min-h-11 bg-brand-orange text-white font-medium rounded-full shadow-card hover:shadow-hover hover:brightness-95 transition-all focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2">
+            Add Meal
+          </button>
+        </div>
+      </div>
+
+      <!-- Photo Panel -->
+      <div id="panel-photo" role="tabpanel" aria-labelledby="tab-photo" class="input-panel hidden">
+        <input id="photo-file-input" type="file" accept="image/jpeg,image/png,image/webp" class="hidden" />
+        <div id="photo-dropzone"
+          class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-brand-orange transition-colors"
+          role="button" tabindex="0" aria-label="Choose or drop a photo of your food">
+          <p class="text-body text-sm">📷 Tap to choose a photo, or drag one here</p>
+          <p class="text-body text-xs mt-1">Food photo, nutrition label, receipt, or menu</p>
+        </div>
+        <div id="photo-preview-wrap" class="hidden mt-3">
+          <div class="flex items-center gap-3">
+            <img id="photo-preview-img" class="w-20 h-20 object-cover rounded-lg border border-gray-200" alt="Selected photo preview" />
+            <div class="flex-1 min-w-0">
+              <p id="photo-filename" class="text-sm text-heading truncate"></p>
+              <button id="photo-remove-btn" type="button" class="text-sm text-error hover:opacity-80 transition min-h-11">Remove photo</button>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between mt-3">
+          <div id="photo-status" class="text-sm text-body"></div>
+          <button id="photo-submit-btn" type="button" disabled
+            class="px-6 py-3 min-h-11 bg-brand-orange text-white font-medium rounded-full shadow-card hover:shadow-hover hover:brightness-95 transition-all focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            Scan Photo
+          </button>
+        </div>
       </div>
     </div>
 
@@ -62,6 +120,7 @@
 
 {% block extra_scripts %}
 <script src="/static/js/audioRecorder.js"></script>
+<script src="/static/js/mealInputTabs.js"></script>
 <script src="/static/js/macroChart.js"></script>
 <script src="/static/js/dashboard.js"></script>
 

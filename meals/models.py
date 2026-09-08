@@ -3,6 +3,8 @@ from django.conf import settings
 
 
 class Meal(models.Model):
+    INPUT_METHOD_CHOICES = [('voice', 'Voice'), ('text', 'Text'), ('image', 'Image')]
+
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='meals')
     original_text = models.TextField()
     transcription_text = models.TextField(null=True, blank=True)
@@ -10,6 +12,7 @@ class Meal(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     confidence_score = models.FloatField(default=0.85)
+    input_method = models.CharField(max_length=10, choices=INPUT_METHOD_CHOICES, default='voice')
 
     class Meta:
         ordering = ['-created_at']

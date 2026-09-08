@@ -41,7 +41,7 @@ class MealSerializer(serializers.ModelSerializer):
         model = Meal
         fields = [
             'meal_id', 'original_text', 'transcription_text', 'confidence_score',
-            'confidence_badge', 'parsed_at', 'meal_items', 'totals', 'created_at'
+            'confidence_badge', 'parsed_at', 'meal_items', 'totals', 'created_at', 'input_method'
         ]
 
     def get_meal_id(self, obj):
@@ -64,6 +64,10 @@ class MealSerializer(serializers.ModelSerializer):
             'fats_g': sum(item.fats_g for item in items),
             'fiber_g': sum(item.fiber_g for item in items),
         }
+
+
+class MealTextInputSerializer(serializers.Serializer):
+    text = serializers.CharField(min_length=1, max_length=2000, trim_whitespace=True)
 
 
 class MealUpdateSerializer(serializers.Serializer):

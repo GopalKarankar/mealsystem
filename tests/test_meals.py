@@ -351,4 +351,151 @@ class TestMealEndpoints:
         data = response.json()
         assert len(data['meal_items']) == 1
         assert data['meal_items'][0]['item_name'] == 'banana'
+        assert data['input_method'] == 'voice'
         assert Meal.objects.filter(user=self.user).count() == 1
+
+    def test_text_missing_field(self):
+        """Test text endpoint requires 'text' field."""
+        response = self.client.post(
+            '/meals/text', {},
+            content_type='application/json',
+            **self.headers
+        )
+        assert response.status_code == 400
+
+    def test_text_empty_string(self):
+        """Test text endpoint rejects empty or whitespace-only strings."""
+        response = self.client.post(
+            '/meals/text',
+            data=json.dumps({'text': '   '}),
+            content_type='application/json',
+            **self.headers
+        )
+        assert response.status_code == 400
+
+    def test_text_too_long(self):
+        """Test text endpoint rejects strings over 2000 characters."""
+        response = self.client.post(
+            '/meals/text',
+            data=json.dumps({'text': 'a' * 2001}),
+            content_type='application/json',
+            **self.headers
+        )
+        assert response.status_code == 400
+
+    @patch('meals.services.meal_service.parse_meal')
+    def test_text_no_items_identified_returns_422(self, mock_parse_meal):
+        """Test text endpoint returns 422 when no food items identified."""
+        mock_parse_meal.return_value = []
+        response = self.client.post(
+            '/meals/text',
+            data=json.dumps({'text': 'asdf'}),
+            content_type='application/json',
+            **self.headers
+        )
+        assert response.status_code == 422
+
+    @patch('meals.services.meal_service.parse_meal')
+    def test_text_llm_service_error_returns_503(self, mock_parse_meal):
+        """Test text endpoint returns 503 when LLM fails."""
+        mock_parse_meal.side_effect = LLMServiceError("Groq API unavailable")
+        response = self.client.post(
+            '/meals/text',
+            data=json.dumps({'text': 'I ate a banana'}),
+            content_type='application/json',
+            **self.headers
+        )
+        assert response.status_code == 503
+
+    @patch('meals.services.meal_service.parse_meal')
+    def test_text_success_creates_meal(self, mock_parse_meal):
+        """Test successful text meal creation."""
+        mock_parse_meal.return_value = [
+            {
+                'item_name': 'banana',
+                'quantity': 1,
+                'unit': 'medium',
+                'calories': 89,
+                'protein_g': 1.09,
+                'carbs_g': 22.84,
+                'fats_g': 0.33,
+            }
+        ]
+        response = self.client.post(
+            '/meals/text',
+            data=json.dumps({'text': 'I ate a banana'}),
+            content_type='application/json',
+            **self.headers
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data['input_method'] == 'text'
+        assert data['meal_items'][0]['item_name'] == 'banana'
+
+    def test_image_no_file_provided(self):
+        """Test image endpoint requires 'file' field."""
+        response = self.client.post('/meals/image', {}, **self.headers)
+        assert response.status_code == 400
+
+    def test_image_unsupported_extension(self):
+        """Test image endpoint rejects unsupported formats."""
+        img = SimpleUploadedFile('photo.txt', b'not an image', content_type='text/plain')
+        response = self.client.post('/meals/image', {'file': img}, **self.headers)
+        assert response.status_code == 400
+
+    def test_image_bad_magic_bytes_rejected(self):
+        """Test image endpoint rejects files with wrong magic bytes."""
+        # .jpg extension but content is not a valid JPEG
+        img = SimpleUploadedFile('photo.jpg', b'not really a jpeg', content_type='image/jpeg')
+        response = self.client.post('/meals/image', {'file': img}, **self.headers)
+        assert response.status_code == 400
+
+    @override_settings(MAX_IMAGE_SIZE_MB=0)
+    def test_image_file_too_large(self):
+        """Test image endpoint rejects files over size limit."""
+        # Valid JPEG magic bytes but oversized
+        img = SimpleUploadedFile('photo.jpg', b'\xff\xd8\xff' + b'x' * 100, content_type='image/jpeg')
+        response = self.client.post('/meals/image', {'file': img}, **self.headers)
+        assert response.status_code == 413
+
+    @patch('meals.services.meal_service.parse_meal')
+    @patch('meals.services.meal_service.scan_image')
+    def test_image_no_items_identified_returns_422(self, mock_scan_image, mock_parse_meal):
+        """Test image endpoint returns 422 when no items identified."""
+        mock_scan_image.return_value = "a glass of water"
+        mock_parse_meal.return_value = []
+        img = SimpleUploadedFile('photo.jpg', b'\xff\xd8\xff' + b'fake jpeg', content_type='image/jpeg')
+        response = self.client.post('/meals/image', {'file': img}, **self.headers)
+        assert response.status_code == 422
+
+    @patch('meals.services.meal_service.parse_meal')
+    @patch('meals.services.meal_service.scan_image')
+    def test_image_vision_service_error_returns_503(self, mock_scan_image, mock_parse_meal):
+        """Test image endpoint handles vision service errors."""
+        mock_scan_image.side_effect = ValueError("Photo scanning failed: timeout")
+        img = SimpleUploadedFile('photo.png', b'\x89PNG\r\n\x1a\n' + b'fake png', content_type='image/png')
+        response = self.client.post('/meals/image', {'file': img}, **self.headers)
+        assert response.status_code == 422
+
+    @patch('meals.services.meal_service.parse_meal')
+    @patch('meals.services.meal_service.scan_image')
+    def test_image_success_creates_meal(self, mock_scan_image, mock_parse_meal):
+        """Test successful image meal creation."""
+        mock_scan_image.return_value = "a banana on a plate"
+        mock_parse_meal.return_value = [
+            {
+                'item_name': 'banana',
+                'quantity': 1,
+                'unit': 'medium',
+                'calories': 89,
+                'protein_g': 1.09,
+                'carbs_g': 22.84,
+                'fats_g': 0.33,
+            }
+        ]
+        img = SimpleUploadedFile('photo.jpg', b'\xff\xd8\xff' + b'fake jpeg', content_type='image/jpeg')
+        response = self.client.post('/meals/image', {'file': img}, **self.headers)
+        assert response.status_code == 201
+        data = response.json()
+        assert data['input_method'] == 'image'
+        assert data['meal_items'][0]['item_name'] == 'banana'

@@ -6,11 +6,35 @@ from django.utils import timezone
 from .whisper_service import transcribe
 from .llm_service import parse_meal, LLMServiceError
 from .nutrition_service import validate_macros
+from .vision_service import scan_image
 from ..models import Meal, MealItem
 
 logger = logging.getLogger(__name__)
 
 ALLOWED_AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".webm"}
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def sniff_image_extension(file_obj) -> str | None:
+    """Sniff actual image type from magic bytes, ignoring client-supplied name/MIME.
+
+    Reads a small header, then rewinds the file object so callers can still
+    stream its full contents afterward.
+    """
+    file_obj.seek(0)
+    header = file_obj.read(16)
+    file_obj.seek(0)
+
+    # JPEG: FF D8 FF
+    if header.startswith(b"\xff\xd8\xff"):
+        return ".jpg"
+    # PNG: 89 50 4E 47 0D 0A 1A 0A
+    if header.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    # WEBP: RIFF....WEBP
+    if header[0:4] == b"RIFF" and header[8:12] == b"WEBP":
+        return ".webp"
+    return None
 
 
 def get_confidence_badge(score: float) -> str:
@@ -79,66 +103,104 @@ def get_user_meals(user, date: str | None = None, limit: int | None = None):
     return list(query)
 
 
+def _assemble_meal(user, raw_items: list, *, original_text: str, transcription_text: str | None,
+                    input_method: str, empty_items_message: str) -> Meal:
+    """Shared logic for assembling a meal from parsed items."""
+    validated = []
+    for raw in raw_items:
+        try:
+            from ..serializers import MealItemCreateSerializer
+            serializer = MealItemCreateSerializer(data=raw)
+            if serializer.is_valid():
+                validated.append(serializer.validated_data)
+            else:
+                logger.warning("Dropping unparseable item from LLM output: %r, errors: %s", raw, serializer.errors)
+        except Exception as e:
+            logger.warning("Error validating item %r: %s", raw, e)
+
+    result = validate_macros(validated)
+    for w in result["warnings"]:
+        logger.warning("macro validation: %s", w)
+
+    corrected_items = result["corrected_items"]
+    if not corrected_items:
+        raise ValueError(empty_items_message)
+
+    confidence_score = sum(i.get("confidence", 0.85) for i in corrected_items) / len(corrected_items)
+
+    meal = Meal.objects.create(
+        user=user,
+        original_text=original_text,
+        transcription_text=transcription_text,
+        parsed_at=timezone.now(),
+        confidence_score=confidence_score,
+        input_method=input_method,
+    )
+
+    for item_data in corrected_items:
+        MealItem.objects.create(
+            meal=meal,
+            item_name=item_data["item_name"],
+            quantity=item_data["quantity"],
+            unit=item_data.get("unit", "serving"),
+            serving_size_grams=item_data.get("serving_size_grams"),
+            calories=item_data["calories"],
+            protein_g=item_data["protein_g"],
+            carbs_g=item_data["carbs_g"],
+            fats_g=item_data["fats_g"],
+            fiber_g=item_data.get("fiber_g", 0),
+            confidence=item_data.get("confidence", 0.85),
+            source=item_data.get("source") or "llm_estimate",
+            llm_generated=True,
+        )
+
+    return meal
+
+
 def create_meal_from_audio(user, audio_path: str) -> Meal:
     """Create a meal from an audio file."""
     try:
         transcript = transcribe(audio_path)
         raw_items = parse_meal(transcript)
-
-        validated = []
-        for raw in raw_items:
-            try:
-                from ..serializers import MealItemCreateSerializer
-                serializer = MealItemCreateSerializer(data=raw)
-                if serializer.is_valid():
-                    validated.append(serializer.validated_data)
-                else:
-                    logger.warning("Dropping unparseable item from LLM output: %r, errors: %s", raw, serializer.errors)
-            except Exception as e:
-                logger.warning("Error validating item %r: %s", raw, e)
-
-        result = validate_macros(validated)
-        for w in result["warnings"]:
-            logger.warning("macro validation: %s", w)
-
-        corrected_items = result["corrected_items"]
-        if not corrected_items:
-            raise ValueError(
-                "No food items could be identified in the audio. Please try again with a clearer description of what you ate."
-            )
-
-        confidence_score = sum(i.get("confidence", 0.85) for i in corrected_items) / len(corrected_items)
-
-        meal = Meal.objects.create(
-            user=user,
+        return _assemble_meal(
+            user, raw_items,
             original_text=transcript,
             transcription_text=transcript,
-            parsed_at=timezone.now(),
-            confidence_score=confidence_score,
+            input_method="voice",
+            empty_items_message="No food items could be identified in the audio. Please try again with a clearer description of what you ate.",
         )
-
-        for item_data in corrected_items:
-            MealItem.objects.create(
-                meal=meal,
-                item_name=item_data["item_name"],
-                quantity=item_data["quantity"],
-                unit=item_data.get("unit", "serving"),
-                serving_size_grams=item_data.get("serving_size_grams"),
-                calories=item_data["calories"],
-                protein_g=item_data["protein_g"],
-                carbs_g=item_data["carbs_g"],
-                fats_g=item_data["fats_g"],
-                fiber_g=item_data.get("fiber_g", 0),
-                confidence=item_data.get("confidence", 0.85),
-                source=item_data.get("source") or "llm_estimate",
-                llm_generated=True,
-            )
-
-        return meal
-
     finally:
         if os.path.exists(audio_path):
             os.remove(audio_path)
+
+
+def create_meal_from_text(user, text: str) -> Meal:
+    """Create a meal from typed text."""
+    raw_items = parse_meal(text)
+    return _assemble_meal(
+        user, raw_items,
+        original_text=text,
+        transcription_text=None,
+        input_method="text",
+        empty_items_message="No food items could be identified in the text. Please describe what you ate more specifically.",
+    )
+
+
+def create_meal_from_image(user, image_path: str) -> Meal:
+    """Create a meal from an uploaded photo via vision-LLM."""
+    try:
+        description = scan_image(image_path)
+        raw_items = parse_meal(description)
+        return _assemble_meal(
+            user, raw_items,
+            original_text=description,
+            transcription_text=description,
+            input_method="image",
+            empty_items_message="No food items could be identified in the photo. Please try a clearer photo of the food, label, or menu.",
+        )
+    finally:
+        if os.path.exists(image_path):
+            os.remove(image_path)
 
 
 def replace_meal_items(meal: Meal, payload_data: dict) -> Meal:

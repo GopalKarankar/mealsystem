@@ -40,26 +40,11 @@ class Dashboard {
     }
   }
 
-  async addMeal(audioBlob) {
-    if (this.isLoading) return;
-
-    this.isLoading = true;
-    try {
-      recorder.uploadAndProcess(
-        (progress) => this.showProgress(progress),
-        (meal) => {
-          this.meals.unshift(meal);
-          this.updateTotals();
-          this.render();
-          this.showSuccess('Meal added successfully');
-        },
-        (error) => {
-          this.showError(error.message);
-        }
-      );
-    } finally {
-      this.isLoading = false;
-    }
+  handleMealResult(meal) {
+    this.meals.unshift(meal);
+    this.updateTotals();
+    this.render();
+    this.showSuccess('Meal added successfully');
   }
 
   async updateMeal(mealId, mealItems) {
@@ -167,6 +152,8 @@ class Dashboard {
       return;
     }
 
+    const methodIcon = { voice: '🎤', text: '⌨️', image: '📷' };
+
     list.innerHTML = this.meals.map(meal => `
       <div class="bg-white rounded-2xl shadow-card hover:shadow-hover transition-shadow p-4 mb-4">
         <div class="flex items-start justify-between mb-3">
@@ -174,9 +161,12 @@ class Dashboard {
             <h3 class="font-medium text-heading">${meal.meal_items.map(i => i.item_name).join(', ')}</h3>
             <p class="text-sm text-body mt-1">${formatTime(meal.created_at)}</p>
           </div>
-          <span class="inline-block px-3 py-1 text-sm font-bold rounded-full ${getConfidenceTintClass(meal.confidence_score)}">
-            ${Math.round(meal.confidence_score * 100)}%
-          </span>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-body mr-1" title="Logged via ${meal.input_method}">${methodIcon[meal.input_method] || ''}</span>
+            <span class="inline-block px-3 py-1 text-sm font-bold rounded-full ${getConfidenceTintClass(meal.confidence_score)}">
+              ${Math.round(meal.confidence_score * 100)}%
+            </span>
+          </div>
         </div>
         <div class="grid grid-cols-3 gap-2 mb-3 text-sm">
           <div>
@@ -239,6 +229,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (recordBtn) {
       recordBtn.addEventListener('click', () => handleRecord());
     }
+
+    // Initialize tabbed input UI
+    initMealInputTabs();
   }
 });
 
@@ -264,12 +257,10 @@ async function handleRecord() {
       await recorder.uploadAndProcess(
         () => {},
         (meal) => {
-          dashboard.meals.unshift(meal);
-          dashboard.updateTotals();
-          dashboard.render();
-          statusEl.textContent = 'Meal added!';
+          dashboard.handleMealResult(meal);
           recordBtn.textContent = '🎤 Record';
           recordBtn.disabled = false;
+          statusEl.textContent = 'Meal added!';
           setTimeout(() => { statusEl.textContent = ''; }, 3000);
         },
         (error) => {
