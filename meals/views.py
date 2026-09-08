@@ -129,15 +129,14 @@ class ListMealsView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class UpdateMealView(APIView):
+class MealDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def patch(self, request, meal_id):
-        # Validate meal_id format (should be numeric string)
+    def _get_meal_or_error(self, meal_id, user):
         try:
             meal_id_int = int(meal_id)
         except ValueError:
-            return Response(
+            return None, Response(
                 {"detail": "Invalid meal id"},
                 status=status.HTTP_400_BAD_REQUEST
             )
@@ -145,19 +144,24 @@ class UpdateMealView(APIView):
         try:
             meal = Meal.objects.get(id=meal_id_int)
         except Meal.DoesNotExist:
-            return Response(
+            return None, Response(
                 {"detail": "Meal not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Check ownership
-        if meal.user != request.user:
-            return Response(
-                {"detail": "Not authorized to modify this meal"},
+        if meal.user != user:
+            return None, Response(
+                {"detail": "Not authorized to access this meal"},
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        # Validate request data
+        return meal, None
+
+    def patch(self, request, meal_id):
+        meal, error = self._get_meal_or_error(meal_id, request.user)
+        if error:
+            return error
+
         serializer = MealUpdateSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(
@@ -176,37 +180,22 @@ class UpdateMealView(APIView):
         response_serializer = MealSerializer(meal)
         return Response(response_serializer.data, status=status.HTTP_200_OK)
 
-
-class DeleteMealView(APIView):
-    permission_classes = [IsAuthenticated]
-
     def delete(self, request, meal_id):
-        # Validate meal_id format
-        try:
-            meal_id_int = int(meal_id)
-        except ValueError:
-            return Response(
-                {"detail": "Invalid meal id"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        try:
-            meal = Meal.objects.get(id=meal_id_int)
-        except Meal.DoesNotExist:
-            return Response(
-                {"detail": "Meal not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        # Check ownership
-        if meal.user != request.user:
-            return Response(
-                {"detail": "Not authorized to delete this meal"},
-                status=status.HTTP_403_FORBIDDEN
-            )
+        meal, error = self._get_meal_or_error(meal_id, request.user)
+        if error:
+            return error
 
         meal.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# Keep old views for backwards compatibility if needed elsewhere
+class UpdateMealView(MealDetailView):
+    pass
+
+
+class DeleteMealView(MealDetailView):
+    pass
 
 
 class DashboardView(APIView):

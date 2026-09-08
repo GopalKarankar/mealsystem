@@ -66,14 +66,15 @@ class TestMealEndpoints:
         """Test listing meals filtered by date."""
         today = timezone.now().date()
 
-        # Create meal for today
+        # Create meal for today (auto_now_add ignores created_at arg, so update it after)
         meal_today = Meal.objects.create(
             user=self.user,
             original_text="Today meal",
             transcription_text="Today meal",
             confidence_score=0.85,
-            created_at=timezone.make_aware(datetime.combine(today, datetime.min.time())),
         )
+        meal_today.created_at = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+        meal_today.save(update_fields=['created_at'])
 
         # Create meal for yesterday
         yesterday = today - timedelta(days=1)
@@ -82,8 +83,9 @@ class TestMealEndpoints:
             original_text="Yesterday meal",
             transcription_text="Yesterday meal",
             confidence_score=0.85,
-            created_at=timezone.make_aware(datetime.combine(yesterday, datetime.min.time())),
         )
+        meal_yesterday.created_at = timezone.make_aware(datetime.combine(yesterday, datetime.min.time()))
+        meal_yesterday.save(update_fields=['created_at'])
 
         date_str = today.strftime("%Y-%m-%d")
         response = self.client.get(f'/meals/?date={date_str}', **self.headers)
@@ -99,7 +101,7 @@ class TestMealEndpoints:
 
     def test_dashboard_requires_date(self):
         """Test dashboard endpoint requires date parameter."""
-        response = self.client.get('/dashboard', **self.headers)
+        response = self.client.get('/meals/dashboard', **self.headers)
         assert response.status_code == 400
 
     def test_dashboard_with_valid_date(self):
@@ -107,14 +109,16 @@ class TestMealEndpoints:
         today = timezone.now().date()
         date_str = today.strftime("%Y-%m-%d")
 
-        # Create meal
+        # Create meal (auto_now_add ignores created_at arg, so update it after)
         meal = Meal.objects.create(
             user=self.user,
             original_text="Test meal",
             transcription_text="Test meal",
             confidence_score=0.85,
-            created_at=timezone.make_aware(datetime.combine(today, datetime.min.time())),
         )
+        meal.created_at = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+        meal.save(update_fields=['created_at'])
+
         MealItem.objects.create(
             meal=meal,
             item_name="banana",
@@ -126,7 +130,7 @@ class TestMealEndpoints:
             fats_g=0.33,
         )
 
-        response = self.client.get(f'/dashboard?date={date_str}', **self.headers)
+        response = self.client.get(f'/meals/dashboard?date={date_str}', **self.headers)
         assert response.status_code == 200
         data = response.json()
         assert data['date'] == date_str
