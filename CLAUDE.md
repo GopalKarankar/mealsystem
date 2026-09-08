@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Quick Reference
 
 **Project**: Meal Ingestion Pipeline — Voice-to-meal-data web app  
-**Stack**: React 19 + Vite + Tailwind | FastAPI + MongoDB (PyMongo)  
+**Stack**: Django 5 + PostgreSQL + Tailwind | DRF + Gunicorn  
 **Deadline**: September 12, 2026  
 **Spec**: See [SPEC.md](./SPEC.md) for full 15-section product specification
 
@@ -21,21 +21,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    cd meal-system
    ```
 
-2. **Frontend setup**:
+2. **Create PostgreSQL database** (via Docker):
    ```bash
-   cd frontend
-   cp .env.example .env
-   npm install
+   docker run -d --name meal-postgres -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16
    ```
 
-3. **Start MongoDB** (via Docker):
+3. **Backend setup**:
    ```bash
-   docker run -d --name meal-mongo -p 27017:27017 mongo:7
-   ```
-
-4. **Backend setup**:
-   ```bash
-   cd backend
    python -m venv venv
    source venv/bin/activate  # Windows: venv\Scripts\activate
    pip install -r requirements.txt
@@ -48,33 +40,37 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - On Ubuntu/Debian: `apt-get install ffmpeg`
    - On Windows: Download from [ffmpeg.org](https://ffmpeg.org/download.html) or use `winget install ffmpeg`
 
-5. **Start both servers** (open two terminals):
+4. **Configure .env**:
    ```bash
-   # Terminal 1: Frontend
-   cd frontend && npm run dev        # http://localhost:5173
+   # Copy example and update values
+   cp .env.example .env
+   # Edit .env with your API keys and database URL:
+   # DATABASE_URL=postgresql://postgres:postgres@localhost:5432/meal_system
+   ```
 
-   # Terminal 2: Backend
-   cd backend && python main.py      # http://localhost:8000
+5. **Run migrations**:
+   ```bash
+   python manage.py migrate
+   ```
+
+6. **Start server**:
+   ```bash
+   python manage.py runserver  # http://localhost:8000
    ```
 
 ### Environment Variables
 
-**Frontend** (`frontend/.env`):
-- `VITE_API_BASE_URL` — Backend API (default: http://localhost:8000)
-- `VITE_API_TIMEOUT` — Request timeout in ms (default: 30000)
-- `VITE_GOOGLE_CLIENT_ID` — Google OAuth client ID (get from [Google Cloud Console](https://console.cloud.google.com))
-
-**Backend** (`backend/.env`):
-- `SECRET_KEY` — JWT secret (change in production)
+**Backend** (`.env`):
+- `SECRET_KEY` — Django secret key (generate: `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`)
+- `DEBUG` — Set to `False` in production
+- `DATABASE_URL` — PostgreSQL connection string (default: `postgresql://postgres:postgres@localhost:5432/meal_system`)
 - `GROQ_API_KEY` — Groq API key (get free key from console.groq.com, used for Llama LLM parsing)
-- `MONGODB_URL` — MongoDB connection string (default: mongodb://localhost:27017)
-- `MONGODB_DB_NAME` — MongoDB database name (default: meal_system)
+- `LLM_MODEL` — Groq model ID (default: `openai/gpt-oss-120b`)
 - `NVIDIA_API_KEY` — NVIDIA API key (get from [build.nvidia.com](https://build.nvidia.com), used for Parakeet ASR)
-- `NVIDIA_API_BASE_URL` — NVIDIA NIM API endpoint (default: https://integrate.api.nvidia.com/v1)
+- `NVIDIA_API_BASE_URL` — NVIDIA NIM API endpoint (default: `https://integrate.api.nvidia.com/v1`)
 - `NVIDIA_ASR_FUNCTION_ID` — Parakeet ASR model function ID (copy from build.nvidia.com for your chosen variant, required for voice transcription)
-- `NVIDIA_ASR_GRPC_URI` — Parakeet ASR gRPC endpoint (default: grpc.nvcf.nvidia.com:443)
-- `NVIDIA_ASR_LANGUAGE_CODE` — Language code for transcription (default: en-US)
-- `DEBUG` — Set to False in production
+- `NVIDIA_ASR_GRPC_URI` — Parakeet ASR gRPC endpoint (default: `grpc.nvcf.nvidia.com:443`)
+- `NVIDIA_ASR_LANGUAGE_CODE` — Language code for transcription (default: `en-US`)
 - `GOOGLE_CLIENT_ID` — Google OAuth client ID (from Google Cloud Console)
 - `GOOGLE_CLIENT_SECRET` — Google OAuth client secret (from Google Cloud Console)
 
@@ -89,279 +85,258 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
    - Go to **Credentials** → **Create Credentials** → **OAuth client ID**
    - Choose **Web application**
    - Add authorized JavaScript origins:
-     - `http://localhost:5173` (dev frontend)
+     - `http://localhost:8000` (dev frontend)
      - `http://localhost` (dev fallback)
    - Add authorized redirect URIs:
-     - `http://localhost:8000/auth/google/callback` (dev backend)
-   - Copy **Client ID** and **Client Secret** to `.env` files
+     - `http://localhost:8000/login` (dev backend)
+   - Copy **Client ID** and **Client Secret** to `.env` file
 
-#### 2. Frontend Setup
+#### 2. Frontend Setup (Django Templates)
 
-Install `@react-oauth/google`:
-```bash
-cd frontend
-npm install @react-oauth/google
-```
+Django templates are served from `templates/` directory with Google Identity Services SDK integration.
 
-Wrap your app with `GoogleOAuthProvider` in `main.jsx`:
-```jsx
-import { GoogleOAuthProvider } from '@react-oauth/google';
-import App from './App';
+Update `templates/login.html` to include Google Sign-In button:
+```html
+<!-- Load Google Identity Services SDK -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 
-ReactDOM.render(
-  <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
-    <App />
-  </GoogleOAuthProvider>,
-  document.getElementById('root')
-);
-```
+<!-- Initialize and render Google Sign-In button -->
+<div id="g_id_onload"
+     data-client_id="{{ google_client_id }}"
+     data-callback="handleCredentialResponse">
+</div>
+<div class="g_id_signin" data-type="standard"></div>
 
-Add Google Login button in `Login.jsx`:
-```jsx
-import { GoogleLogin } from '@react-oauth/google';
-
-export default function Login() {
-  const handleGoogleLogin = async (credentialResponse) => {
-    // Send idToken to backend for verification
-    const res = await api.post('/auth/google', {
-      id_token: credentialResponse.credential
-    });
-    // Store JWT token from backend
-    localStorage.setItem('access_token', res.data.access_token);
-    // Redirect to dashboard
-    navigate('/dashboard');
-  };
-
-  return (
-    <GoogleLogin
-      onSuccess={handleGoogleLogin}
-      onError={() => console.log('Login failed')}
-      theme="outline"
-      size="large"
-    />
-  );
+<script>
+function handleCredentialResponse(response) {
+  // Send JWT to backend
+  fetch('/auth/google', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      id_token: response.credential
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    // Store token and redirect
+    localStorage.setItem('access_token', data.access_token);
+    window.location.href = '/';
+  });
 }
+</script>
 ```
 
-#### 3. Backend Setup
+#### 3. Backend Setup (Django + DRF)
 
-Install dependencies:
-```bash
-cd backend
-pip install google-auth google-auth-httplib2 google-auth-oauthlib
-# Or use: pip install google-auth==2.25.2
-```
+Google OAuth verification is configured in `accounts/views.py` and uses the `google-auth` library (already in requirements.txt).
 
-Add Google OAuth endpoint in `backend/app/routes/auth.py`:
+The `GoogleLoginView` verifies the OAuth token:
 ```python
 from google.auth.transport import requests
 from google.oauth2 import id_token
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.status import HTTP_401_UNAUTHORIZED
+from accounts.models import User
 
-class GoogleLoginRequest(BaseModel):
-    id_token: str
-
-@router.post('/google')
-async def google_login(request: GoogleLoginRequest, db: Session = Depends(get_db)):
-    """Verify Google ID token and create/return user with JWT."""
-    try:
-        # Verify token with Google
-        idinfo = id_token.verify_oauth2_token(
-            request.id_token,
-            requests.Request(),
-            current_app.config['GOOGLE_CLIENT_ID']
-        )
-        
-        # Extract user info
-        email = idinfo['email']
-        name = idinfo['name']
-        google_id = idinfo['sub']
-        
-        # Find or create user
-        user = db.query(User).filter(User.email == email).first()
-        if not user:
-            user = User(
-                email=email,
-                username=email.split('@')[0],
-                full_name=name,
-                google_id=google_id
+class GoogleLoginView(APIView):
+    def post(self, request):
+        """Verify Google ID token and create/return user with JWT."""
+        try:
+            # Verify token with Google
+            idinfo = id_token.verify_oauth2_token(
+                request.data.get('id_token'),
+                requests.Request(),
+                settings.GOOGLE_CLIENT_ID
             )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-        
-        # Generate JWT token
-        access_token = create_access_token(data={'sub': user.id})
-        return {
-            'access_token': access_token,
-            'token_type': 'bearer',
-            'user_id': user.id
-        }
-    except ValueError as e:
-        raise HTTPException(status_code=401, detail='Invalid token')
-```
-
-#### 4. MongoDB Document Structure
-
-User documents in MongoDB simply include a `google_id: Optional[str]` key (set to `None` at registration, and set via `$set` on first Google login) — there is no ORM model file to edit. Documents are stored in the `users` collection and have the following shape:
-```json
-{
-  "_id": ObjectId,
-  "username": "string",
-  "email": "string",
-  "password_hash": "string (or null for OAuth-only users)",
-  "google_id": "string (or null)",
-  "created_at": datetime,
-  "updated_at": datetime
-}
+            
+            email = idinfo['email']
+            google_id = idinfo['sub']
+            
+            # Find or create user
+            user, created = User.objects.get_or_create(
+                email=email,
+                defaults={
+                    'username': generate_unique_username(email.split('@')[0]),
+                    'google_id': google_id
+                }
+            )
+            
+            # Update google_id if not set
+            if not user.google_id:
+                user.google_id = google_id
+                user.save()
+            
+            # Generate JWT token
+            access_token = create_access_token({'user_id': user.id})
+            return Response({
+                'access_token': access_token,
+                'token_type': 'Bearer',
+                'user_id': user.id,
+                'expires_in': 604800
+            })
+        except ValueError:
+            return Response({'detail': 'Invalid token'}, status=HTTP_401_UNAUTHORIZED)
 ```
 
 ---
 
 ## Common Development Tasks
 
-### Run Dev Servers
+### Run Dev Server
 
 ```bash
-# Frontend (http://localhost:5173)
-cd frontend && npm run dev
-
-# Backend (http://localhost:8000)
-cd backend && python main.py
-
-# API docs (Swagger)
-open http://localhost:8000/docs
+python manage.py runserver  # http://localhost:8000
 ```
 
 ### Linting & Formatting
 
 ```bash
-# Frontend
-cd frontend
-npm run lint          # Check for issues
-npm run format        # Auto-format code
-
-# Backend
-cd backend
-python -m flake8 app/
-python -m black app/  # Auto-format
+python -m black meal_system/ accounts/ meals/  # Auto-format
+python -m flake8 meal_system/ accounts/ meals/  # Check for issues
 ```
 
 ### Testing
 
 ```bash
-# Frontend
-cd frontend
-npm test              # Run Jest tests
-npm test -- --watch  # Watch mode
-
-# Backend
-cd backend
-pytest                # All tests
-pytest tests/test_auth.py -v  # Single file, verbose
-pytest tests/ -k "test_login" # Filter by name
-pytest --cov app/    # Coverage report
+pytest                              # All tests
+pytest tests/test_auth.py -v        # Single file, verbose
+pytest tests/ -k "test_login"       # Filter by name
+pytest --cov=accounts --cov=meals   # Coverage report
 ```
 
-### Database (MongoDB)
-
-MongoDB is schemaless — no migration step for document changes.
+### Database (PostgreSQL)
 
 #### Reset local dev data
 
-To reset all data (meals and meals history):
+To reset all data (users and meals):
 ```bash
-docker exec meal-mongo mongosh meal_system --eval "db.dropDatabase()"
+python manage.py flush --no-input
+python manage.py migrate
 ```
+
+#### Create superuser (for admin access)
+
+```bash
+python manage.py createsuperuser
+```
+
+Then visit `http://localhost:8000/admin` to manage data.
 
 ### Build for Production
 
 ```bash
-# Frontend
-cd frontend
-npm run build         # Creates dist/
-
-# Backend
-cd backend
 # Set DEBUG=False in .env, then deploy with:
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app
+gunicorn meal_system.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 120
 ```
 
 ---
 
 ## Architecture Overview
 
-### Frontend Structure
+### Django Project Structure
 
 ```
-frontend/src/
-├── components/
-│   ├── common/        # Reusable: Button, Card, Badge, Spinner
-│   ├── audio/         # AudioRecorder (main feature)
-│   ├── meal/          # MealCard, MealItem, NutritionBreakdown
-│   ├── dashboard/     # DailySummary, MacroChart, MealList
-│   └── layout/        # Header, Footer, Container
-├── pages/
-│   ├── Login.jsx      # Auth page
-│   ├── Register.jsx   # Sign-up
-│   └── Dashboard.jsx  # Main app (meals + charts)
-├── store/
-│   └── mealsStore.js  # Zustand: meals state, CRUD actions
-├── utils/
-│   ├── api.js         # Axios client with JWT interceptor
-│   ├── auth.js        # Token management
-│   ├── nutrition.js   # Macro calculations
-│   └── formatting.js  # Date/number formatting
-└── styles/
-    ├── globals.css    # Tailwind + resets
-    ├── variables.css  # Design tokens (colors, spacing, shadows)
-    └── animations.css # Keyframes (spin, fade, slide)
-```
-
-**Key Patterns**:
-- **State**: Zustand store for meals (lightweight, no Redux boilerplate)
-- **API**: Axios with auto-auth interceptor (JWT in header)
-- **Styling**: Tailwind utilities + CSS variables for design tokens
-- **Auth**: JWT stored in localStorage, cleared on 401
-
-### Backend Structure
-
-```
-backend/
-├── main.py            # FastAPI app, routes, middleware setup
-├── pytest.ini         # pytest configuration
-├── app/
-│   ├── config.py      # Settings from .env (using Pydantic)
-│   ├── database.py    # PyMongo client, get_db()
-│   ├── schemas.py     # Pydantic: request/response validation
-│   ├── auth/
-│   │   ├── password.py # bcrypt: hash_password(), verify_password()
-│   │   ├── jwt.py      # create_access_token(), decode_access_token()
-│   │   ├── dependencies.py # get_current_user() — auth decorator
-│   │   └── google_oauth.py # Google OAuth helper
-│   ├── routes/
-│   │   ├── auth.py     # POST /auth/register, /auth/login, /auth/google
-│   │   └── meals.py    # GET/POST/PATCH/DELETE /meals
-│   └── services/
-│       ├── whisper_service.py # transcribe(audio_file) → text
-│       ├── llm_service.py     # parse_meal(transcript) → JSON
-│       ├── nutrition_service.py # validate_macros() — arithmetic sanity check
-│       └── meal_service.py     # create_meal_from_audio(), replace_meal_items(), business logic
-├── tests/
+meal_system/
+├── manage.py                  # Django command-line utility
+├── meal_system/
 │   ├── __init__.py
-│   ├── conftest.py    # pytest fixtures (test database)
-│   └── test_meal_service.py
-└── requirements.txt   # FastAPI, PyMongo, pytest, etc.
+│   ├── settings.py            # Django configuration, loads .env
+│   ├── urls.py                # URL routing (auth, meals, templates)
+│   ├── wsgi.py                # WSGI application entry point
+│   └── asgi.py                # ASGI application (not used, here for completeness)
+├── accounts/
+│   ├── models.py              # User model (extends AbstractUser)
+│   ├── views.py               # RegisterView, LoginView, GoogleLoginView (APIView)
+│   ├── serializers.py         # Pydantic-like validation (DRF serializers)
+│   ├── authentication.py      # DRF custom authentication class (Bearer token)
+│   ├── jwt.py                 # create_access_token(), decode_access_token()
+│   ├── google_oauth.py        # generate_unique_username()
+│   ├── urls.py                # Routes to /auth/register, /login, /google
+│   └── admin.py               # Django admin config
+├── meals/
+│   ├── models.py              # Meal, MealItem models
+│   ├── views.py               # APIView endpoints (voice, list, update, delete, dashboard)
+│   ├── serializers.py         # Meal, MealItem serializers
+│   ├── urls.py                # Routes to /meals/*
+│   ├── services/
+│   │   ├── nutrition_service.py # validate_macros()
+│   │   ├── llm_service.py       # parse_meal() — Groq Llama
+│   │   ├── whisper_service.py   # transcribe() — NVIDIA Parakeet
+│   │   └── meal_service.py      # Business logic: create_meal_from_audio(), replace_meal_items(), etc.
+│   └── admin.py               # Django admin config
+├── templates/
+│   ├── base.html              # Base layout with Chart.js CDN, static JS loader
+│   ├── login.html             # Google Sign-In page
+│   ├── register.html          # Registration form
+│   └── dashboard.html         # Meal tracker dashboard
+├── static/
+│   └── js/
+│       ├── auth.js            # getToken(), setToken(), removeToken(), logout()
+│       ├── apiClient.js       # apiRequest(), apiGet/Post/Patch/Delete helpers
+│       ├── nutrition.js       # calculateMacroPercentages(), getMacroColor()
+│       ├── formatting.js      # formatNumber(), formatTime(), formatDate()
+│       ├── audioRecorder.js   # AudioRecorder class (MediaRecorder API)
+│       ├── macroChart.js      # MacroChart class (Chart.js doughnut)
+│       └── dashboard.js       # Dashboard class (state management, render)
+├── tests/
+│   ├── conftest.py            # pytest fixtures (test_user, test_user_with_google)
+│   ├── test_auth.py           # Auth endpoint tests
+│   └── test_meals.py          # Meals endpoint tests
+├── .env.example               # Environment variables template
+├── requirements.txt           # Django, DRF, psycopg, pytest-django, etc.
+└── pytest.ini                 # pytest configuration
 ```
 
 **Key Patterns**:
-- **Async**: FastAPI async/await throughout (fast AI/ML pipelines)
-- **Validation**: Pydantic schemas validate all requests
-- **Auth**: JWT middleware checks token, injects get_current_user
-- **Services**: Layer between routes (API) and models (DB)
-- **Error Handling**: HTTPException with clear messages, logged
-- **Nutrition**: Meal item macros/confidence come directly from the Groq Llama parse (`llm_service.py`), sanity-checked (not overridden) by `nutrition_service.validate_macros()`'s ±10% calorie-arithmetic check
+- **ORM**: Django ORM (User, Meal, MealItem models with ForeignKey relationships)
+- **API**: Django REST Framework APIView subclasses
+- **Auth**: Custom DRF authentication class validates Bearer token, returns 401 on failure
+- **Services**: Layer between views (API) and models (DB) for business logic
+- **Validation**: DRF serializers validate requests/responses
+- **Templates**: Django templates + vanilla JavaScript (no React, no Vite build step)
+- **Styling**: Tailwind CSS via CDN + vanilla JS
+
+### Database Schema (PostgreSQL)
+
+**accounts_user**:
+- `id` (PK, auto-increment)
+- `username` (unique, 150 char)
+- `email` (unique)
+- `password` (bcrypt hash, nullable for OAuth-only)
+- `google_id` (nullable, unique)
+- `created_at` (auto-now-add)
+- `updated_at` (auto-now)
+
+**meals_meal**:
+- `id` (PK, auto-increment)
+- `user_id` (FK to accounts_user)
+- `original_text` (nullable)
+- `transcription_text` (nullable)
+- `parsed_at` (nullable)
+- `created_at` (auto-now-add)
+- `updated_at` (auto-now)
+- `confidence_score` (float, 0.0-1.0)
+
+**meals_mealitem**:
+- `id` (PK, auto-increment)
+- `meal_id` (FK to meals_meal)
+- `item_name` (string)
+- `quantity` (float)
+- `unit` (string, e.g., "g", "oz")
+- `serving_size_grams` (float, nullable)
+- `calories` (float)
+- `protein_g` (float)
+- `carbs_g` (float)
+- `fats_g` (float)
+- `fiber_g` (float, default 0)
+- `confidence` (float, default 0.85)
+- `source` (string, "llm_generated" or "user_input")
+- `llm_generated` (bool)
+- `created_at` (auto-now-add)
 
 ---
 
@@ -369,8 +344,9 @@ backend/
 
 **Auth**:
 ```
-POST   /auth/register      → { access_token, token_type, user_id }
-POST   /auth/login         → { access_token, token_type, user_id }
+POST   /auth/register      → { access_token, token_type, user_id, expires_in }
+POST   /auth/login         → { access_token, token_type, user_id, expires_in }
+POST   /auth/google        → { access_token, token_type, user_id, expires_in }
 ```
 
 **Meals**:
@@ -379,7 +355,7 @@ POST   /meals/voice        → { meal_id, meal_items[], totals, confidence_score
 GET    /meals?date=YYYY-MM-DD&limit=50
 PATCH  /meals/{id}         → Updated meal
 DELETE /meals/{id}         → 204 No Content
-GET    /dashboard          → { today, week, recent_meals }
+GET    /dashboard?date=    → { today, week, recent_meals, confidence_distribution }
 ```
 
 Full spec: See [SPEC.md](./SPEC.md) § 5 (API Specification)
@@ -447,10 +423,9 @@ Full spec: See [SPEC.md](./SPEC.md) § 5 (API Specification)
 - Orange (#FF7043) as the single call-to-action color: all primary CTAs and active states use this to guide user attention.
 
 **Related files**:
-- `frontend/src/styles/variables.css` — CSS custom properties for colors, shadows, transitions
-- `frontend/tailwind.config.js` — Tailwind theme extensions (colors, borderRadius, boxShadow)
-- `frontend/src/components/layout/Navbar.jsx` — logo wordmark ("Track" + "Intake")
-- `frontend/src/pages/Login.jsx` — background, card styling
+- `templates/base.html` — Tailwind CDN link, base layout
+- `templates/dashboard.html` — Page styling, meal cards, macro chart
+- `templates/login.html`, `templates/register.html` — Auth form styling
 
 ---
 
@@ -459,27 +434,27 @@ Full spec: See [SPEC.md](./SPEC.md) § 5 (API Specification)
 ### Voice Meal Ingestion (Core Feature)
 
 ```
-User (Frontend)
-  ↓ 1. Click "Record Meal"
-AudioRecorder Component
-  ↓ 2. Record voice → .wav file
-  ↓ 3. POST /meals/voice (multipart/form-data)
-Backend: POST /meals/voice
-  ↓ 4. Save audio temporarily
-  ↓ 5. Call Groq Whisper-large-v3 → transcript
-  ↓ 6. Call Groq Llama-3.3-70B with system prompt → structured JSON with LLM-estimated macros
-  ↓ 7. Pydantic validation (schema, ranges)
-  ↓ 8. Validate macros (calories ≈ P*4 + C*4 + F*9)
-  ↓ 9. Save Meal + MealItems to DB
-  ↓ 10. Delete temp audio, return JSON
-Frontend: useMealsStore.addMeal()
-  ↓ 11. Update UI (MealCard appears)
-  ↓ 12. User can edit/delete/continue
+User (Browser)
+  ↓ 1. Click "Record Meal" on dashboard
+AudioRecorder Component (static/js/audioRecorder.js)
+  ↓ 2. Record voice → .wav file via MediaRecorder API
+  ↓ 3. POST /meals/voice (multipart/form-data with Authorization header)
+Backend: meals/views.py::CreateMealVoiceView
+  ↓ 4. Validate audio (extension, size < 25MB)
+  ↓ 5. Call create_meal_from_audio() service
+  ↓ 6. Transcribe via NVIDIA Parakeet (meals/services/whisper_service.py)
+  ↓ 7. Parse via Groq Llama-3.3-70B (meals/services/llm_service.py)
+  ↓ 8. Validate macros via nutrition_service.validate_macros() (±10% tolerance)
+  ↓ 9. Save Meal + MealItem records to PostgreSQL via Django ORM
+  ↓ 10. Return 201 with meal JSON (id, items, totals, confidence_score)
+Frontend: Dashboard.addMeal()
+  ↓ 11. Update local meals array, re-render meal list
+  ↓ 12. User can edit/delete/record another meal
 ```
 
 **Validation Checkpoints**:
 1. Audio format (mp3, wav, m4a, webm), size < 25MB
-2. Whisper success (timeout 30s)
+2. Whisper/Parakeet success (timeout 30s)
 3. LLM JSON validity (all fields present, valid types)
 4. Macro sanity (±10% tolerance on kcal calculation)
 5. Confidence scoring (0.0-1.0 per item)
@@ -490,37 +465,49 @@ See [SPEC.md](./SPEC.md) § 8 (LLM Prompting) for Groq system prompt.
 
 ## Testing Strategy
 
-### Frontend
-- **Component tests**: Render + simulate user actions (Jest + React Testing Library)
-- **API mocking**: Mock axios responses in tests
-- **E2E (optional)**: Playwright for full flows
+### Backend (pytest + pytest-django)
 
-### Backend
 - **Unit tests**: Each service function tested independently
 - **Integration tests**: Auth flow, DB operations, API endpoints
-- **Fixtures**: Mock Whisper/Claude responses
+- **Fixtures**: Fixtures in `tests/conftest.py` (test_user, test_user_with_google)
+- **Mocking**: Mock Groq/NVIDIA responses to avoid API calls in tests
 - **Coverage target**: >80%
 
 **Example test**:
 ```python
-def test_voice_endpoint_valid_audio(client, auth_headers):
+import pytest
+from django.test import Client
+
+@pytest.mark.django_db
+def test_voice_endpoint_valid_audio(test_user):
+    """Test voice upload endpoint with valid audio."""
+    from accounts.jwt import create_access_token
+    client = Client()
+    token = create_access_token({'user_id': test_user.id})
+    
     with open("tests/fixtures/sample_meal.wav", "rb") as f:
         response = client.post(
             "/meals/voice",
-            files={"audio": f},
-            headers=auth_headers
+            {'audio': f},
+            HTTP_AUTHORIZATION=f"Bearer {token}"
         )
+    
     assert response.status_code == 201
-    assert response.json()["confidence_score"] > 0.7
+    data = response.json()
+    assert data['confidence_score'] > 0.7
 ```
 
 ### Google OAuth Testing
 
 **Backend OAuth endpoint test**:
 ```python
+import pytest
 from unittest.mock import patch
+from django.test import Client
+from accounts.models import User
 
-def test_google_login_new_user(client, db):
+@pytest.mark.django_db
+def test_google_login_new_user():
     """Test Google OAuth login creates new user."""
     mock_idinfo = {
         'sub': 'google_123',
@@ -528,25 +515,30 @@ def test_google_login_new_user(client, db):
         'name': 'Test User'
     }
     
+    client = Client()
     with patch('google.oauth2.id_token.verify_oauth2_token', return_value=mock_idinfo):
         response = client.post(
             '/auth/google',
-            json={'id_token': 'mock_token'}
+            data={'id_token': 'mock_token'},
+            content_type='application/json'
         )
     
     assert response.status_code == 200
-    assert 'access_token' in response.json()
+    data = response.json()
+    assert 'access_token' in data
     
-    # Verify user created in DB
-    user = db.query(User).filter(User.email == 'user@gmail.com').first()
-    assert user is not None
+    # Verify user created
+    user = User.objects.get(email='user@gmail.com')
     assert user.google_id == 'google_123'
 
-def test_google_login_existing_user(client, db):
+@pytest.mark.django_db
+def test_google_login_existing_user():
     """Test Google OAuth login returns existing user."""
-    user = User(email='existing@gmail.com', google_id='google_456')
-    db.add(user)
-    db.commit()
+    user = User.objects.create_user(
+        username='testuser',
+        email='existing@gmail.com',
+        google_id='google_456'
+    )
     
     mock_idinfo = {
         'sub': 'google_456',
@@ -554,48 +546,29 @@ def test_google_login_existing_user(client, db):
         'name': 'Existing User'
     }
     
+    client = Client()
     with patch('google.oauth2.id_token.verify_oauth2_token', return_value=mock_idinfo):
         response = client.post(
             '/auth/google',
-            json={'id_token': 'mock_token'}
+            data={'id_token': 'mock_token'},
+            content_type='application/json'
         )
     
     assert response.status_code == 200
-    assert response.json()['user_id'] == user.id
+    data = response.json()
+    assert data['user_id'] == user.id
 
-def test_google_login_invalid_token(client):
+def test_google_login_invalid_token():
     """Test Google OAuth rejects invalid tokens."""
+    client = Client()
     with patch('google.oauth2.id_token.verify_oauth2_token', side_effect=ValueError):
         response = client.post(
             '/auth/google',
-            json={'id_token': 'invalid_token'}
+            data={'id_token': 'invalid_token'},
+            content_type='application/json'
         )
     
     assert response.status_code == 401
-```
-
-**Frontend OAuth component test** (React Testing Library):
-```jsx
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import Login from './Login';
-
-jest.mock('@react-oauth/google', () => ({
-  GoogleLogin: ({ onSuccess }) => (
-    <button onClick={() => onSuccess({ credential: 'mock_token' })}>
-      Sign in with Google
-    </button>
-  )
-}));
-
-test('Google login submits token to backend', async () => {
-  render(<Login />);
-  
-  fireEvent.click(screen.getByText('Sign in with Google'));
-  
-  await waitFor(() => {
-    expect(localStorage.getItem('access_token')).toBe('mock_jwt_token');
-  });
-});
 ```
 
 ---
@@ -603,69 +576,58 @@ test('Google login submits token to backend', async () => {
 ## Common Pitfalls & Debugging
 
 ### "Meal confidence score is too low"
-- Check Groq Llama prompt (backend/app/services/llm_service.py)
+- Check Groq Llama prompt (meals/services/llm_service.py)
 - Vague transcripts ("I ate stuff") get low confidence
 - Fallback: user can edit before saving
 
 ### "Macro calculations don't match"
-- Claude might round differently; allow ±10% tolerance
-- Check validation logic in backend/app/services/nutrition_service.py
+- Groq might round differently; allow ±10% tolerance
+- Check validation logic in meals/services/nutrition_service.py
 - Log request/response for debugging
 
 ### "Audio upload fails"
-- Frontend: Check browser console (Dev Tools → Network)
-- Backend: Check if Parakeet is configured (`NVIDIA_ASR_FUNCTION_ID` set), NVIDIA API key works
-- Non-WAV uploads (MP3, M4A, WebM) are automatically transcoded to WAV; ensure `ffmpeg` is installed and on `PATH`
-- If transcoding fails ("ffmpeg not found" or "unsupported audio codec"), install ffmpeg or check audio format validity
-- Test with curl: `curl -F "audio=@sample.wav" http://localhost:8000/meals/voice` (requires auth header: `-H "Authorization: Bearer <jwt_token>"`)
+- Check browser console (Dev Tools → Network tab)
+- Verify Parakeet is configured (`NVIDIA_ASR_FUNCTION_ID` set, NVIDIA API key works)
+- Non-WAV uploads (MP3, M4A, WebM) are automatically transcoded to WAV via pydub+ffmpeg
+- If transcoding fails ("ffmpeg not found"), install ffmpeg or check audio format validity
+- Test with curl: `curl -F "audio=@sample.wav" -H "Authorization: Bearer <jwt_token>" http://localhost:8000/meals/voice`
 
 ### "JWT token expired"
-- Frontend: Auto-logout on 401 (axios interceptor)
+- Frontend: Auto-logout on 401 (static/js/apiClient.js interceptor)
 - Check token in localStorage: `localStorage.getItem('access_token')`
-- Login again to get fresh token
+- Login again to get fresh token (7-day expiry via accounts/jwt.py)
 
-### "Cannot connect to MongoDB"
-- Check Docker container is running: `docker ps | grep meal-mongo`
-- Verify `MONGODB_URL` in `.env` matches the running container's port
-- Backend fails fast at startup with a ping error if Mongo is unreachable — check console output
+### "Cannot connect to PostgreSQL"
+- Check Docker container is running: `docker ps | grep meal-postgres`
+- Verify `DATABASE_URL` in `.env` matches container's port/name
+- Test locally: `psql postgresql://postgres:postgres@localhost:5432/meal_system`
+- Backend fails fast at startup with a connection error if DB is unreachable
 
 ### Google OAuth Troubleshooting
 
 ### "Google sign-in button not appearing"
-- Check `VITE_GOOGLE_CLIENT_ID` is set in `frontend/.env`
-- Verify `@react-oauth/google` is installed: `npm list @react-oauth/google`
-- Check console (Dev Tools → Console) for errors
-- Ensure `GoogleOAuthProvider` wraps the component tree in `main.jsx`
+- Check `GOOGLE_CLIENT_ID` is set in `.env`
+- Verify Google Identity Services SDK loads in templates/login.html
+- Check browser console (Dev Tools → Console) for errors
+- Ensure Google script tag is present: `<script src="https://accounts.google.com/gsi/client" async defer></script>`
 
 ### "401 Invalid token from Google backend"
-- Verify `GOOGLE_CLIENT_ID` in backend `.env` matches frontend
-- Check Google Cloud Console: Credentials → OAuth 2.0 Client IDs
-- Ensure authorized redirect URIs include `http://localhost:8000/auth/google/callback`
+- Verify `GOOGLE_CLIENT_ID` in `.env` matches Google Cloud Console
+- Ensure authorized redirect URIs include `http://localhost:8000/login`
 - Test token verification: `python -c "from google.oauth2 import id_token; print('Import OK')"`
 
 ### "CORS error on /auth/google request"
-- Backend must include CORS headers for frontend origin
-- Add to `main.py`:
-  ```python
-  from fastapi.middleware.cors import CORSMiddleware
-  app.add_middleware(
-      CORSMiddleware,
-      allow_origins=["http://localhost:5173", "http://localhost:3000"],
-      allow_credentials=True,
-      allow_methods=["*"],
-      allow_headers=["*"],
-  )
-  ```
+- Django CORS is configured in meal_system/settings.py
+- Ensure CORS_ALLOWED_ORIGINS includes localhost:8000
+- Check browser Network tab for actual CORS headers
 
 ### "User created but not logging in consistently"
-- Check `google_id` is persisted in DB (run: `docker exec meal-mongo mongosh meal_system --eval "db.users.find({}, {google_id:1})"`)
-- Verify User documents include `google_id` field in MongoDB
-- Test lookup: `docker exec meal-mongo mongosh meal_system --eval "db.users.findOne({email: 'test@example.com'})"` should return the document
+- Verify `google_id` is persisted in DB: `python manage.py dbshell` → `SELECT email, google_id FROM accounts_user;`
+- Test lookup: `User.objects.get(email='test@example.com')`
 
 ### "Token still valid after logout"
-- Implement token blacklist or short expiry (recommend 15min)
-- Frontend: Always delete token on logout: `localStorage.removeItem('access_token')`
-- Add logout endpoint to clear server-side sessions (if using)
+- Frontend: Logout deletes token from localStorage (static/js/auth.js::logout())
+- Django: Tokens are stateless; short expiry (7 days) and client-side deletion are sufficient
 
 ---
 
@@ -677,7 +639,7 @@ test('Google login submits token to backend', async () => {
 - Text contrast: 4.5:1 (AA standard)
 
 **Testing keyboard navigation**:
-- Tab through all buttons/inputs
+- Tab through all buttons/inputs in templates
 - Focus states must be visible
 - No keyboard traps
 
@@ -710,15 +672,9 @@ docs: Update API endpoint reference
 
 **Before pushing**:
 ```bash
-# Frontend
-npm run lint && npm run format
-
-# Backend
-python -m black app/
-python -m flake8 app/
+python -m black meal_system/ accounts/ meals/
+python -m flake8 meal_system/ accounts/ meals/
 pytest
-
-# Both
 git log --oneline -n 5
 ```
 
@@ -726,87 +682,74 @@ git log --oneline -n 5
 
 ## Production Build & Render.com Deployment
 
-### Frontend Build for Production
+### Django Production
 
+**Environment Setup**:
+- `DEBUG=False` in `.env`
+- `SECRET_KEY` must be a strong random string (generated on first setup)
+- `DATABASE_URL` points to managed PostgreSQL (Render or external)
+- All API keys set (GROQ, NVIDIA, Google)
+
+**Collectstatic**:
 ```bash
-cd frontend
-npm install              # Install all dependencies
-npm run build          # Creates dist/ folder with optimized assets
-npm start              # Test production server locally (port 5173)
+python manage.py collectstatic --noinput
 ```
 
-**Key Files**:
-- `server.js` — Production Express server (serves `dist/`, handles SPA routing)
-- `vite.config.js` — Build config (minification, chunk splitting)
-- `.env.example` — Environment variables template (update production URLs here)
+This bundles Tailwind CSS from CDN and vanilla JS into `static/` for WhiteNoise serving.
 
-**Frontend Production Environment**:
-- `VITE_API_BASE_URL` — Must point to deployed backend (e.g., `https://meal-system-backend.onrender.com`)
-- `VITE_GOOGLE_CLIENT_ID` — Same Google Client ID as backend's `GOOGLE_CLIENT_ID`
-- `VITE_API_TIMEOUT` — Request timeout in ms (default: 30000)
+**Start Command**:
+```bash
+gunicorn meal_system.wsgi:application --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120
+```
 
 **Render Deployment**:
 - See [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md) for full setup
-- TL;DR: Push to GitHub → Render auto-deploys from `render.yaml` → Frontend at `https://meal-system-frontend.onrender.com`
-- Backend start command: `npm start` (serves via Express from `dist/`)
-- Build command: `npm install && npm run build`
-
-### Backend Production
-
-**Start Command** (documented in main.py):
-```bash
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:8000
-```
-
-**Environment Variables** (set in `.env` for local test, in Render dashboard for production):
-- All keys from `backend/.env.example`
-- DEBUG must be `False` in production
-- MONGODB_URL must point to production database
-- All API keys (GROQ, NVIDIA, Google) configured
+- TL;DR: Push to GitHub → Render auto-deploys from `render.yaml` → Django at `https://meal-system.onrender.com`
+- Render auto-creates PostgreSQL database and sets `DATABASE_URL`
+- Build command includes `python manage.py migrate`
 
 ---
 
 ## Deployment Checklist (Pre-Sept 12)
 
-**Frontend (React/Vite)**:
-- [ ] `npm run build` succeeds (no errors, creates `dist/`)
-- [ ] `npm start` serves built app correctly (Express server running)
-- [ ] `.env.example` updated with production comments and defaults
-- [ ] No console.log / debug statements in src/
-- [ ] ESLint & Prettier pass: `npm run lint && npm run format`
-- [ ] All dependencies in package.json (including terser, express)
-- [ ] Google sign-in button renders and is clickable
-- [ ] VITE_API_BASE_URL correctly points to backend in production
-- [ ] VITE_GOOGLE_CLIENT_ID matches backend's GOOGLE_CLIENT_ID
-
-**Backend (FastAPI)**:
+**Django Backend**:
 - [ ] `pip install -r requirements.txt` works (no missing packages)
-- [ ] `gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app` starts without errors
+- [ ] `python manage.py collectstatic --noinput` succeeds
+- [ ] `python manage.py migrate` runs without errors
+- [ ] `gunicorn meal_system.wsgi:application` starts without errors
 - [ ] `.env.example` updated with all required keys (no secrets)
-- [ ] No console.log / debug statements
-- [ ] Linted & formatted (Black, Flake8, pytest passes)
-- [ ] DEBUG=False in production .env
+- [ ] DEBUG=False in production `.env`
 - [ ] All API keys set (GROQ, NVIDIA, Google)
-- [ ] MongoDB connection tested from production environment
+- [ ] PostgreSQL connection tested from production environment
+- [ ] No print() / logging of sensitive data
+
+**Templates & Frontend (Vanilla JS)**:
+- [ ] All HTML templates render without errors
+- [ ] JavaScript loads from `/static/js/` CDN or local
+- [ ] Tailwind CSS loads from CDN
+- [ ] Chart.js loads from CDN
+- [ ] Google Sign-In button renders and is clickable
+- [ ] Audio recorder works on dashboard
+- [ ] No console errors in DevTools
 
 **End-to-End**:
-- [ ] Tests passing (npm test, pytest)
-- [ ] MongoDB and Qdrant reachable from production environment
+- [ ] Tests passing: `pytest`
+- [ ] PostgreSQL and API services reachable from production environment
 - [ ] README complete (setup instructions + Google OAuth steps)
-- [ ] API docs at /docs endpoint
+- [ ] Django admin at `/admin` (optional, for data management)
 - [ ] Google OAuth tested (token validation, user creation, existing user login)
-- [ ] JWT tokens issued after OAuth login
-- [ ] CORS configured for frontend/backend OAuth requests
+- [ ] JWT tokens issued after OAuth login (7-day expiry)
+- [ ] CORS configured (Django CORS middleware)
 - [ ] Responsive on mobile (375px), tablet (600px), desktop (1024px+)
 - [ ] Accessibility tested (keyboard nav, screen reader labels)
-- [ ] Error messages user-friendly (not technical)
+- [ ] Error messages user-friendly (not Django stack traces)
 - [ ] Confidence badges working (green >90%, orange 70-90%, red <70%)
 - [ ] Google Client ID/Secret configured in production environment
 - [ ] Production redirect URI matches Google Cloud Console settings
-- [ ] Token expiry & refresh logic working (or use short-lived tokens)
-- [ ] Logout clears token from localStorage and optionally server-side
-- [ ] Render.yaml configured (or manual Render setup documented)
+- [ ] Logout clears token from localStorage
+- [ ] Render.yaml configured with correct build/start commands
 - [ ] GitHub repo connected to Render for auto-deploy
+- [ ] PostgreSQL backups configured (Render auto-handles)
 
 See [SPEC.md](./SPEC.md) § 14-15 (QA & Deployment Checklists) for full details.
 
@@ -822,22 +765,24 @@ See [SPEC.md](./SPEC.md) § 14-15 (QA & Deployment Checklists) for full details.
 | Error handling | [SPEC.md](./SPEC.md) § 9 |
 | Security rules | [SPEC.md](./SPEC.md) § 10 |
 | Design tokens | [SPEC.md](./SPEC.md) § 13 |
-| Frontend docs | [README.md](./README.md) / `frontend/` |
-| Backend docs | [README.md](./README.md) / `backend/` |
+| Backend code | `meal_system/`, `accounts/`, `meals/` |
+| Templates | `templates/` |
+| Frontend JS | `static/js/` |
 | Google OAuth setup | See "Google OAuth 2.0 Setup" above (§ this file) |
 | Render deployment | [RENDER_DEPLOYMENT.md](./RENDER_DEPLOYMENT.md) |
 | Google Cloud Console | https://console.cloud.google.com |
-| @react-oauth/google docs | https://www.npmjs.com/package/@react-oauth/google |
 | google-auth library | https://github.com/googleapis/google-auth-library-python |
 | Render.com | https://render.com |
+| Django docs | https://docs.djangoproject.com |
+| Django REST Framework | https://www.django-rest-framework.org |
+| PostgreSQL | https://www.postgresql.org |
 
 ---
 
 ## Getting Help
 
 1. **Setup issues**: Check README.md Quick Start section
-2. **Code questions**: Review component files (well-structured, short)
-3. **API questions**: Hit `/docs` endpoint in browser (Swagger)
-4. **Design questions**: See `frontend/src/styles/variables.css`
+2. **Code questions**: Review code files (well-structured, short)
+3. **API questions**: Check meal_system/urls.py for routing
+4. **Design questions**: See templates/ and static/css/
 5. **Architecture questions**: This file + [SPEC.md](./SPEC.md)
-

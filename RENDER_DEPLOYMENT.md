@@ -1,160 +1,125 @@
-# Render.com Deployment Guide
+# Render.com Deployment Guide — Django + PostgreSQL
 
-This guide walks through deploying the Meal Ingestion Pipeline (frontend + backend) to Render.com.
+## Overview
+
+The Meal Ingestion Pipeline now runs as a single Django monolith on Render:
+- **Web service**: Django with Gunicorn (templates + API + static files)
+- **Database**: Managed PostgreSQL
+- **Zero complexity**: No npm, Vite, or separate frontend build
 
 ## Prerequisites
 
-1. **GitHub Repository**: Push code to GitHub (Render deploys from Git)
+1. **GitHub Repository**: Configured with all Django code
 2. **Render Account**: Create free account at [render.com](https://render.com)
-3. **Environment Variables**: All `.env.example` values must be configured in Render
+3. **API Keys**: Groq, NVIDIA, Google OAuth credentials
 
 ## Deployment Steps
 
-### Option A: Using render.yaml (Recommended)
+### 1. Create PostgreSQL Database
 
-The `render.yaml` file at the project root defines both services. Render will auto-detect and deploy:
+1. Go to Render dashboard → **New +** → **PostgreSQL**
+2. Set:
+   - Database name: `meal_db`
+   - Region: Choose your region
+   - Plan: **Standard** (or Starter for testing)
+3. Click **Create Database**
+4. Copy the connection string (auto-added as `DATABASE_URL`)
 
-1. **Connect GitHub**:
-   - In Render dashboard: New → Blueprint
-   - Select GitHub repo
-   - Render auto-deploys from `render.yaml`
+### 2. Create Web Service
 
-2. **Configure Environment Variables**:
-   - Go to Render dashboard → Your Blueprint
-   - Add these in **Environment** section:
-     - `VITE_API_BASE_URL`: `https://meal-system-backend.onrender.com` (update to your backend URL)
-     - `VITE_GOOGLE_CLIENT_ID`: Your Google OAuth Client ID
-     - `MONGODB_URL`: Your MongoDB connection string
-     - `GROQ_API_KEY`: Free from [console.groq.com](https://console.groq.com)
-     - `NVIDIA_API_KEY`: From [build.nvidia.com](https://build.nvidia.com)
-     - `NVIDIA_ASR_FUNCTION_ID`: Parakeet ASR model ID from NVIDIA
-     - `GOOGLE_CLIENT_ID`: From Google Cloud Console
-     - `GOOGLE_CLIENT_SECRET`: From Google Cloud Console
-     - `SECRET_KEY`: Generate a secure random string (e.g., `openssl rand -hex 32`)
+1. Go to Render dashboard → **New +** → **Web Service**
+2. Connect to GitHub repository
+3. Configure:
+   - **Name**: `meal-system`
+   - **Environment**: `Python 3.11`
+   - **Root Directory**: Leave empty (project root)
+   - **Build Command**:
+     ```
+     pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+     ```
+   - **Start Command**:
+     ```
+     gunicorn meal_system.wsgi:application --bind 0.0.0.0:$PORT --workers 4 --threads 2 --timeout 120
+     ```
+   - **Plan**: Standard (or Starter for testing)
+   - **Region**: Same as database
 
-3. **Deploy**:
-   - Click "Deploy Blueprint"
-   - Render builds and deploys both services
-   - Frontend accessible at `https://meal-system-frontend.onrender.com`
-   - Backend at `https://meal-system-backend.onrender.com`
+### 3. Set Environment Variables
 
-### Option B: Manual Setup (One service at a time)
+In Render dashboard → Web Service → Environment, add:
 
-#### 1. Deploy Backend (FastAPI)
+| Key | Value |
+|-----|-------|
+| `SECRET_KEY` | Generate: `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"` |
+| `DEBUG` | `False` |
+| `GROQ_API_KEY` | From https://console.groq.com |
+| `LLM_MODEL` | `openai/gpt-oss-120b` |
+| `NVIDIA_API_KEY` | From https://build.nvidia.com |
+| `NVIDIA_ASR_FUNCTION_ID` | Your Parakeet function ID |
+| `NVIDIA_API_BASE_URL` | `https://integrate.api.nvidia.com/v1` |
+| `NVIDIA_ASR_GRPC_URI` | `grpc.nvcf.nvidia.com:443` |
+| `NVIDIA_ASR_LANGUAGE_CODE` | `en-US` |
+| `GOOGLE_CLIENT_ID` | From Google Cloud Console |
+| `GOOGLE_CLIENT_SECRET` | From Google Cloud Console |
 
-**New Web Service**:
-- **Name**: `meal-system-backend`
-- **GitHub Repo**: Your repo
-- **Root Directory**: `backend`
-- **Runtime**: Python
-- **Build Command**: `pip install -r requirements.txt`
-- **Start Command**: `gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:8000`
+**Note**: `DATABASE_URL` is auto-linked from PostgreSQL service.
 
-**Environment Variables**:
-```
-MONGODB_URL=<your-mongodb-connection-string>
-MONGODB_DB_NAME=meal_system
-SECRET_KEY=<generate-secure-random-string>
-GROQ_API_KEY=<your-groq-api-key>
-NVIDIA_API_KEY=<your-nvidia-api-key>
-NVIDIA_ASR_FUNCTION_ID=<your-parakeet-model-id>
-NVIDIA_API_BASE_URL=https://integrate.api.nvidia.com/v1
-NVIDIA_ASR_GRPC_URI=grpc.nvcf.nvidia.com:443
-NVIDIA_ASR_LANGUAGE_CODE=en-US
-DEBUG=False
-GOOGLE_CLIENT_ID=<your-google-client-id>
-GOOGLE_CLIENT_SECRET=<your-google-client-secret>
-```
+### 4. Deploy
 
-Note the Backend URL after deployment (e.g., `https://meal-system-backend.onrender.com`)
-
-#### 2. Deploy Frontend (React + Vite)
-
-**New Web Service**:
-- **Name**: `meal-system-frontend`
-- **GitHub Repo**: Your repo
-- **Root Directory**: `frontend`
-- **Runtime**: Node
-- **Build Command**: `npm install && npm run build`
-- **Start Command**: `npm start`
-
-**Environment Variables**:
-```
-VITE_API_BASE_URL=https://meal-system-backend.onrender.com
-VITE_API_TIMEOUT=30000
-VITE_GOOGLE_CLIENT_ID=<your-google-client-id>
-NODE_ENV=production
-```
-
-**Important**: These are build-time variables (set during build). Render will rebuild when you change them.
+1. Click **Deploy**
+2. Monitor build logs in Render dashboard
+3. Once "Build successful", your app is live at `https://meal-system.onrender.com`
 
 ## Verification Checklist
 
 After deployment:
 
-- [ ] Frontend loads at `https://meal-system-frontend.onrender.com`
-- [ ] Backend API responds at `/docs` endpoint
-- [ ] Google sign-in button appears
-- [ ] Google OAuth flow completes (users created in MongoDB)
-- [ ] Voice recording works end-to-end
-- [ ] Meals saved to MongoDB and displayed
-- [ ] No console errors in browser DevTools
-- [ ] Network requests to backend succeed (check Network tab)
+- [ ] App loads at `https://meal-system.onrender.com`
+- [ ] Login page accessible at `/login`
+- [ ] Registration form at `/register`
+- [ ] Google Sign-In button renders
+- [ ] Audio recorder on dashboard
+- [ ] Voice upload works end-to-end
+- [ ] Meals saved to PostgreSQL and displayed
+- [ ] No 500 errors in Render logs
 
 ## Troubleshooting
 
-### Frontend blank page / 404
-- Check Render logs: Dashboard → Frontend Service → Logs
-- Verify `VITE_API_BASE_URL` is set correctly
-- Ensure `npm run build` creates `dist/` folder
+### "psycopg connection failed"
+- Verify `DATABASE_URL` is set in Render environment
+- PostgreSQL database might still be initializing (wait 1-2 min)
+- Redeploy the web service
 
-### Backend 503 Service Unavailable
-- Check Render backend logs
-- Verify all environment variables are set
-- Ensure MongoDB connection string is correct
-- Check if Groq/NVIDIA APIs are accessible
+### "ModuleNotFoundError: No module named 'django'"
+- Check `requirements.txt` exists at repo root
+- Verify build command includes `pip install -r requirements.txt`
+- Redeploy
+
+### "No such table: accounts_user"
+- Migrations may not have run (check build logs)
+- Manual fix: Render dashboard → Shell → `python manage.py migrate`
+
+### Static files 404 (CSS/JS not loading)
+- Verify build command runs `python manage.py collectstatic --noinput`
+- Redeploy
 
 ### Google OAuth fails
-- Verify `VITE_GOOGLE_CLIENT_ID` matches backend's `GOOGLE_CLIENT_ID`
+- Verify `GOOGLE_CLIENT_ID` in Render environment
 - Update Google Cloud Console authorized redirect URIs:
-  - Add: `https://meal-system-backend.onrender.com/auth/google/callback`
-  - Add: `https://meal-system-frontend.onrender.com`
+  - Add: `https://meal-system.onrender.com/login`
+  - Add: `https://meal-system.onrender.com/`
 
-### MongoDB connection fails
-- Check connection string format: `mongodb+srv://user:password@cluster.mongodb.net/`
-- Verify IP whitelist (if using Atlas)
-- Test locally first: `python -c "from pymongo import MongoClient; MongoClient('<url>').admin.command('ping')"`
-
-### Voice transcription fails
-- Verify `NVIDIA_ASR_FUNCTION_ID` is correct
-- Test NVIDIA API locally (see backend docs)
-- Check backend logs for gRPC errors
-
-## CI/CD & Auto-Deploys
+## Auto-Deploy
 
 Render auto-deploys when you push to `main` branch. To disable:
-- Dashboard → Service → Settings → Auto-Deploy → Off
+- Render dashboard → Settings → Disable auto-deploy
 
-To manual deploy:
-- Push to `main` and Render redeploys automatically
+## Scaling
 
-## Scaling & Limits
+Once deployed, scale up:
+1. Render dashboard → Web Service → Plan
+2. Upgrade to **Standard** or **Premium**
 
-Render free tier includes:
-- 750 hours/month combined for all services
-- 0.5 GB RAM per service (enough for this app)
-- 1 GB storage (MongoDB)
+## Summary
 
-For production:
-- Upgrade to Starter/Standard plans
-- Add health checks (Render dashboard → Health Checks)
-- Enable automatic restarts on crashes
-
-## Next Steps
-
-1. Set up MongoDB (Atlas free tier or Render database)
-2. Get API keys (Groq, NVIDIA, Google)
-3. Push to GitHub
-4. Deploy via Render dashboard
-5. Test end-to-end
-6. Monitor logs and errors
+Your Django meal tracking app is now live at https://meal-system.onrender.com and auto-deploys on every push!
