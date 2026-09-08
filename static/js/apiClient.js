@@ -106,6 +106,14 @@ async function apiPostFile(endpoint, formData) {
       throw new Error('Unauthorized');
     }
 
+    if (!response.ok) {
+      const errorBody = await response.json();
+      const error = new Error(errorBody.detail || `HTTP ${response.status}`);
+      error.status = response.status;
+      error.body = errorBody;
+      throw error;
+    }
+
     return response.json();
   } catch (error) {
     clearTimeout(timeoutId);

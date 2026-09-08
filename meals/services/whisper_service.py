@@ -50,10 +50,16 @@ def transcribe(audio_file_path: str) -> str:
 
             audio_data = wf.readframes(wf.getnframes())
 
-        auth = Auth(uri=settings.NVIDIA_ASR_GRPC_URI)
-        auth.generate_grpc_metadata(settings.NVIDIA_API_KEY)
+        auth = Auth(
+            uri=settings.NVIDIA_ASR_GRPC_URI,
+            use_ssl=True,
+            metadata_args=[
+                ["function-id", settings.NVIDIA_ASR_FUNCTION_ID],
+                ["authorization", f"Bearer {settings.NVIDIA_API_KEY}"],
+            ],
+        )
 
-        asr_service = ASRService(settings.NVIDIA_ASR_GRPC_URI, auth)
+        asr_service = ASRService(auth)
 
         recognition_config = riva_asr_pb2.RecognitionConfig()
         recognition_config.encoding = AudioEncoding.LINEAR_PCM
@@ -61,7 +67,7 @@ def transcribe(audio_file_path: str) -> str:
         recognition_config.language_code = settings.NVIDIA_ASR_LANGUAGE_CODE
         recognition_config.max_alternative = 1
 
-        response = asr_service.recognize(audio_data, recognition_config, grpc_metadata=auth.metadata)
+        response = asr_service.offline_recognize(audio_data, recognition_config)
 
         if response.results and response.results[0].alternatives:
             transcript = response.results[0].alternatives[0].transcript
