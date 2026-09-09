@@ -85,8 +85,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `DB_PASSWORD` — PostgreSQL password you set during installation
 - `DB_HOST` — PostgreSQL server host (default: `localhost`)
 - `DB_PORT` — PostgreSQL server port (default: `5432`)
-- `GROQ_API_KEY` — Groq API key (get free key from console.groq.com, used for Llama LLM parsing)
-- `LLM_MODEL` — Groq model ID (default: `openai/gpt-oss-120b`)
+- `GROQ_API_KEY` — Groq API key (get free key from console.groq.com, used for text/JSON meal parsing)
+- `LLM_MODEL` — Groq model ID for text/JSON parsing (default: `openai/gpt-oss-120b`)
+- `GEMINI_API_KEY` — Google Gemini API key (get from [aistudio.google.com](https://aistudio.google.com), used for photo/vision meal scanning)
+- `GEMINI_VISION_MODEL` — Google Gemini model ID for vision (default: `gemini-2.5-flash`)
+- `LLM_VISION_MAX_TOKENS` — Max output tokens for vision model (default: `600`)
 - `NVIDIA_API_KEY` — NVIDIA API key (get from [build.nvidia.com](https://build.nvidia.com), used for Parakeet ASR)
 - `NVIDIA_API_BASE_URL` — NVIDIA NIM API endpoint (default: `https://integrate.api.nvidia.com/v1`)
 - `NVIDIA_ASR_FUNCTION_ID` — Parakeet ASR model function ID (copy from build.nvidia.com for your chosen variant, required for voice transcription)
@@ -745,7 +748,7 @@ gunicorn meal_system.wsgi:application --bind 0.0.0.0:$PORT --workers 4 --threads
 - [ ] `gunicorn meal_system.wsgi:application` starts without errors
 - [ ] `.env.example` updated with all required keys (no secrets)
 - [ ] DEBUG=False in production `.env`
-- [ ] All API keys set (GROQ, NVIDIA, Google)
+- [ ] All API keys set (GROQ for text parsing, GEMINI for photo scanning, NVIDIA for voice, Google OAuth)
 - [ ] PostgreSQL connection tested from production environment
 - [ ] No print() / logging of sensitive data
 

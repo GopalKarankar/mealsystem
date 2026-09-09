@@ -7,7 +7,8 @@ pytest-django==4.7.0
 python-jose[cryptography]==3.5.0
 bcrypt==4.0.1
 groq==1.7.0
-google-auth==2.25.2
+google-auth>=2.56.0
+google-genai==2.22.0
 requests==2.34.2
 nvidia-riva-client==2.27.0
 pydub==0.25.1
