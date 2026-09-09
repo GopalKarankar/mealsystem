@@ -132,6 +132,7 @@ MAX_IMAGE_SIZE_MB = int(os.environ.get('MAX_IMAGE_SIZE_MB', 10))
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 LLM_MODEL = os.environ.get('LLM_MODEL', 'openai/gpt-oss-120b')
 LLM_VISION_MODEL = os.environ.get('LLM_VISION_MODEL', 'qwen/qwen3.8-27b')
+LLM_VISION_MAX_TOKENS = int(os.environ.get('LLM_VISION_MAX_TOKENS', 600))
 
 # NVIDIA Parakeet settings
 NVIDIA_API_KEY = os.environ.get('NVIDIA_API_KEY', '')

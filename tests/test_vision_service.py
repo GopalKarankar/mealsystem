@@ -247,3 +247,106 @@ class TestVisionServiceRetry:
         finally:
             if os.path.exists(image_path):
                 os.remove(image_path)
+
+    def test_scan_image_retries_on_429_otpm_error(self):
+        """Test that scan_image retries on 429 OTPM errors (even with 'too large' in message).
+
+        This is a regression test for the bug where a 429 OTPM error like
+        "Request too large for model ... output tokens per minute (OTPM) ..."
+        was incorrectly classified as a non-retryable 413 size error.
+        """
+        image_path = self.create_temp_image()
+        try:
+            attempt_count = 0
+
+            def mock_chat_completions(*args, **kwargs):
+                nonlocal attempt_count
+                attempt_count += 1
+                if attempt_count <= 2:
+                    # Fail first 2 attempts with 429 OTPM error containing "too large"
+                    otpm_error_msg = (
+                        "Error code: 429 - {'error': {'message': "
+                        "\"Request too large for model `qwen/qwen3.8-27b` in organization ... "
+                        "output tokens per minute (OTPM): Limit 1000, Requested 1579. "
+                        "The request's expected output tokens exceed the enforced limit; "
+                        "reduce max_tokens and try again.\""
+                        "}}"
+                    )
+                    raise _create_status_error(429, otpm_error_msg)
+                # Succeed on 3rd attempt
+                response = MagicMock()
+                response.choices[0].message.content = "eggs with toast"
+                return response
+
+            with patch('meals.services.vision_service.Groq') as mock_groq:
+                mock_groq_instance = MagicMock()
+                mock_groq.return_value = mock_groq_instance
+                mock_groq_instance.chat.completions.create = mock_chat_completions
+
+                result = scan_image(image_path)
+                assert result == "eggs with toast"
+                # Should retry (2 failures, then success on 3rd) — NOT abort immediately
+                assert attempt_count == 3
+
+        finally:
+            if os.path.exists(image_path):
+                os.remove(image_path)
+
+    def test_scan_image_429_otpm_exhausted_raises_llm_service_error(self):
+        """Test that persistent 429 OTPM errors raise LLMServiceError (503), not ValueError (422)."""
+        image_path = self.create_temp_image()
+        try:
+            otpm_error_msg = (
+                "Error code: 429 - {'error': {'message': "
+                "\"Request too large for model `qwen/qwen3.8-27b` in organization ... "
+                "output tokens per minute (OTPM): Limit 1000, Requested 1579.\""
+                "}}"
+            )
+
+            def mock_chat_completions(*args, **kwargs):
+                raise _create_status_error(429, otpm_error_msg)
+
+            with patch('meals.services.vision_service.Groq') as mock_groq:
+                mock_groq_instance = MagicMock()
+                mock_groq.return_value = mock_groq_instance
+                mock_groq_instance.chat.completions.create = mock_chat_completions
+
+                with pytest.raises(LLMServiceError) as exc_info:
+                    scan_image(image_path)
+
+                # Should be LLMServiceError (503), not ValueError (422)
+                # Error message should indicate service is overloaded, not size issue
+                assert "overloaded" in str(exc_info.value).lower()
+
+        finally:
+            if os.path.exists(image_path):
+                os.remove(image_path)
+
+    def test_scan_image_max_tokens_passed_to_groq(self):
+        """Test that max_tokens setting is passed to the Groq API call."""
+        image_path = self.create_temp_image()
+        try:
+            call_kwargs = {}
+
+            def mock_chat_completions(*args, **kwargs):
+                nonlocal call_kwargs
+                call_kwargs = kwargs
+                response = MagicMock()
+                response.choices[0].message.content = "test food"
+                return response
+
+            with patch('meals.services.vision_service.Groq') as mock_groq:
+                mock_groq_instance = MagicMock()
+                mock_groq.return_value = mock_groq_instance
+                mock_groq_instance.chat.completions.create = mock_chat_completions
+
+                scan_image(image_path)
+
+                # Verify max_tokens was passed
+                assert "max_tokens" in call_kwargs
+                # Default should be 600 (from settings)
+                assert call_kwargs["max_tokens"] == 600
+
+        finally:
+            if os.path.exists(image_path):
+                os.remove(image_path)

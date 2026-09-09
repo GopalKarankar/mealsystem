@@ -53,6 +53,7 @@ def scan_image(image_path: str) -> str:
                     ],
                 }],
                 temperature=0.3,
+                max_tokens=settings.LLM_VISION_MAX_TOKENS,
             )
             description = response.choices[0].message.content.strip()
             if not description:
@@ -67,7 +68,7 @@ def scan_image(image_path: str) -> str:
             status_code = e.status_code
             error_msg = str(e)
 
-            if status_code == 413 or "too large" in error_msg.lower():
+            if status_code == 413:
                 logger.error("Groq vision API error (status %d): %s", status_code, error_msg)
                 raise ValueError("Photo is too large for the vision service")
 
