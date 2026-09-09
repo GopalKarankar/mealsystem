@@ -41,7 +41,7 @@ def scan_image(image_path: str) -> str:
 
     for attempt in range(max_retries + 1):
         try:
-            client = Groq(api_key=settings.GROQ_API_KEY)
+            client = Groq(api_key=settings.GROQ_API_KEY, timeout=15.0)
             response = client.chat.completions.create(
                 model=settings.LLM_VISION_MODEL,
                 messages=[{

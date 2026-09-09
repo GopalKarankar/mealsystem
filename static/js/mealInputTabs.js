@@ -183,10 +183,10 @@ async function handlePhotoSubmit() {
   formData.append('file', selectedPhotoFile);
 
   photoSubmitBtn.disabled = true;
-  photoStatus.textContent = 'Scanning photo...';
+  photoStatus.textContent = 'Scanning photo… this can take up to a minute if the vision service is busy';
 
   try {
-    const response = await apiPostFile('/meals/image', formData);
+    const response = await apiPostFile('/meals/image', formData, 60000);
     clearPhotoSelection();
     photoStatus.textContent = '';
     photoSubmitBtn.disabled = false;

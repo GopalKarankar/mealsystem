@@ -83,7 +83,7 @@ async function apiDelete(endpoint) {
 }
 
 // Multipart for file uploads
-async function apiPostFile(endpoint, formData) {
+async function apiPostFile(endpoint, formData, timeoutMs = API_TIMEOUT) {
   const token = getToken();
   const headers = {};
 
@@ -92,7 +92,7 @@ async function apiPostFile(endpoint, formData) {
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), API_TIMEOUT);
+  const timeoutId = setTimeout(() => controller.abort(new DOMException('Request timed out', 'TimeoutError')), timeoutMs);
 
   try {
     const response = await fetch(
