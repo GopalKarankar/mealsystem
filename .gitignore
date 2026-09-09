@@ -38,3 +38,6 @@ Thumbs.db
 # Claude Code local session state
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+
+# Runtime uploads and temp files
+temp_audio/

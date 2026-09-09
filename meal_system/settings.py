@@ -21,6 +21,7 @@ ALLOWED_HOSTS = ['*']
 INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.auth',
+    'django.contrib.staticfiles',
     'rest_framework',
     'whitenoise.runserver_nostatic',
     'accounts',
