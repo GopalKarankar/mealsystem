@@ -44,7 +44,7 @@ def parse_meal(transcript: str) -> list[dict]:
         return []
 
     try:
-        client = Groq(api_key=settings.GROQ_API_KEY)
+        client = Groq(api_key=settings.GROQ_API_KEY, timeout=20.0, max_retries=0)
 
         response = client.chat.completions.create(
             model=settings.LLM_MODEL,

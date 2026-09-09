@@ -183,10 +183,10 @@ async function handlePhotoSubmit() {
   formData.append('file', selectedPhotoFile);
 
   photoSubmitBtn.disabled = true;
-  photoStatus.textContent = 'Scanning photo… this can take up to a minute if the vision service is busy';
+  photoStatus.textContent = 'Scanning photo… this can take up to 75 seconds if the vision service is busy';
 
   try {
-    const response = await apiPostFile('/meals/image', formData, 60000);
+    const response = await apiPostFile('/meals/image', formData, 75000);
     clearPhotoSelection();
     photoStatus.textContent = '';
     photoSubmitBtn.disabled = false;
@@ -201,7 +201,7 @@ async function handlePhotoSubmit() {
     // Map HTTP status codes to friendly messages
     else if (error.status === 413) {
       message = 'Photo is too large. Maximum 10MB.';
-    } else if (error.status === 422) {
+    } else if (error.status === 422 && !error.body?.detail) {
       message = 'Could not identify food in the photo. Please try a clearer photo.';
     } else if (error.status === 400) {
       message = 'Unsupported image format. Please use JPG, PNG, or WEBP.';

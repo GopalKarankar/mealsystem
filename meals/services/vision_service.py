@@ -2,6 +2,7 @@ import base64
 import logging
 import mimetypes
 import time
+import groq
 from groq import Groq, GroqError
 from django.conf import settings
 from meals.services.llm_service import LLMServiceError
@@ -41,7 +42,7 @@ def scan_image(image_path: str) -> str:
 
     for attempt in range(max_retries + 1):
         try:
-            client = Groq(api_key=settings.GROQ_API_KEY, timeout=15.0)
+            client = Groq(api_key=settings.GROQ_API_KEY, timeout=15.0, max_retries=0)
             response = client.chat.completions.create(
                 model=settings.LLM_VISION_MODEL,
                 messages=[{
@@ -58,31 +59,50 @@ def scan_image(image_path: str) -> str:
                 raise ValueError("Could not extract any description from the photo. Please try a clearer photo.")
             return description
 
-        except GroqError as e:
-            error_msg = str(e)
-            is_transient = any(s in error_msg for s in ["503", "over capacity", "429", "rate limit"])
+        except groq.AuthenticationError as e:
+            logger.error("Groq vision API authentication error: %s", str(e))
+            raise ValueError("Vision service authentication failed")
 
-            if "401" in error_msg or "authentication" in error_msg.lower():
-                logger.error("Groq vision API error: %s", error_msg)
-                raise ValueError("Vision service authentication failed")
-            elif "413" in error_msg or "too large" in error_msg.lower():
-                logger.error("Groq vision API error: %s", error_msg)
+        except groq.APIStatusError as e:
+            status_code = e.status_code
+            error_msg = str(e)
+
+            if status_code == 413 or "too large" in error_msg.lower():
+                logger.error("Groq vision API error (status %d): %s", status_code, error_msg)
                 raise ValueError("Photo is too large for the vision service")
-            elif is_transient and attempt < max_retries:
+
+            is_transient = status_code == 429 or status_code >= 500
+
+            if is_transient and attempt < max_retries:
                 delay = backoff_delays[attempt]
-                logger.warning("Groq vision API transient error (attempt %d/%d), retrying in %.1fs: %s",
-                               attempt + 1, max_retries + 1, delay, error_msg)
+                logger.warning("Groq vision API transient error (status %d, attempt %d/%d), retrying in %.1fs: %s",
+                               status_code, attempt + 1, max_retries + 1, delay, error_msg)
                 time.sleep(delay)
                 continue
             elif is_transient:
-                logger.error("Groq vision API error after %d retries: %s", max_retries + 1, error_msg)
+                logger.error("Groq vision API error after %d retries (status %d): %s", max_retries + 1, status_code, error_msg)
                 raise LLMServiceError("Vision service is currently overloaded; please try again shortly")
-            elif "timeout" in error_msg.lower():
-                logger.error("Groq vision API error: %s", error_msg)
-                raise ValueError("Photo scanning timed out; please try again")
             else:
-                logger.error("Groq vision API error: %s", error_msg)
+                logger.error("Groq vision API error (status %d): %s", status_code, error_msg)
                 raise ValueError(f"Photo scanning failed: {error_msg}")
+
+        except groq.APIConnectionError as e:
+            error_msg = str(e)
+
+            if attempt < max_retries:
+                delay = backoff_delays[attempt]
+                logger.warning("Groq vision API timeout/connection error (attempt %d/%d), retrying in %.1fs: %s",
+                               attempt + 1, max_retries + 1, delay, error_msg)
+                time.sleep(delay)
+                continue
+            else:
+                logger.error("Groq vision API timed out after %d retries: %s", max_retries + 1, error_msg)
+                raise LLMServiceError("Vision service timed out; please try again shortly")
+
+        except GroqError as e:
+            error_msg = str(e)
+            logger.error("Groq vision API error: %s", error_msg)
+            raise ValueError(f"Photo scanning failed: {error_msg}")
 
         except ValueError:
             raise
