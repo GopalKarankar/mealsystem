@@ -72,9 +72,45 @@ function initMealInputTabs() {
   if (photoSubmitBtn) {
     photoSubmitBtn.addEventListener('click', handlePhotoSubmit);
   }
+
+  // Camera flow
+  const photoCameraTriggerBtn = document.getElementById('photo-camera-trigger-btn');
+  const photoCameraCloseBtn = document.getElementById('photo-camera-close-btn');
+  const photoCameraCaptureBtn = document.getElementById('photo-camera-capture-btn');
+  const photoCameraRetakeBtn = document.getElementById('photo-camera-retake-btn');
+  const photoCameraUseBtn = document.getElementById('photo-camera-use-btn');
+
+  if (photoCameraTriggerBtn) {
+    photoCameraTriggerBtn.addEventListener('click', openCameraView);
+  }
+
+  if (photoCameraCloseBtn) {
+    photoCameraCloseBtn.addEventListener('click', closeCameraView);
+  }
+
+  if (photoCameraCaptureBtn) {
+    photoCameraCaptureBtn.addEventListener('click', handleCameraCapture);
+  }
+
+  if (photoCameraRetakeBtn) {
+    photoCameraRetakeBtn.addEventListener('click', retakeCamera);
+  }
+
+  if (photoCameraUseBtn) {
+    photoCameraUseBtn.addEventListener('click', useCameraPhoto);
+  }
+
+  // Page unload cleanup
+  window.addEventListener('beforeunload', () => cameraCapture.stop());
 }
 
 function switchTab(button) {
+  // Close camera if open when switching tabs
+  const photoCameraView = document.getElementById('photo-camera-view');
+  if (photoCameraView && !photoCameraView.classList.contains('hidden')) {
+    closeCameraViewIfOpen();
+  }
+
   const panelId = button.getAttribute('aria-controls');
   const panel = document.getElementById(panelId);
 
@@ -212,4 +248,112 @@ async function handlePhotoSubmit() {
     photoStatus.textContent = message;
     photoSubmitBtn.disabled = false;
   }
+}
+
+// Camera capture functions
+async function openCameraView() {
+  const photoCameraTriggerBtn = document.getElementById('photo-camera-trigger-btn');
+  const photoCameraView = document.getElementById('photo-camera-view');
+  const photoCameraVideo = document.getElementById('photo-camera-video');
+  const photoCameraErrorEl = document.getElementById('photo-camera-error');
+  const photoCameraCaptureBtn = document.getElementById('photo-camera-capture-btn');
+
+  photoCameraTriggerBtn.setAttribute('aria-expanded', 'true');
+  photoCameraErrorEl.classList.add('hidden');
+  photoCameraView.classList.remove('hidden');
+
+  try {
+    await cameraCapture.start(photoCameraVideo, handleStreamEnded);
+    photoCameraCaptureBtn.focus();
+  } catch (err) {
+    photoCameraErrorEl.textContent = err.message;
+    photoCameraErrorEl.classList.remove('hidden');
+  }
+}
+
+function closeCameraView() {
+  const photoCameraTriggerBtn = document.getElementById('photo-camera-trigger-btn');
+  const photoCameraView = document.getElementById('photo-camera-view');
+
+  cameraCapture.stop();
+  photoCameraView.classList.add('hidden');
+  photoCameraTriggerBtn.setAttribute('aria-expanded', 'false');
+  photoCameraTriggerBtn.focus();
+}
+
+function closeCameraViewIfOpen() {
+  const photoCameraView = document.getElementById('photo-camera-view');
+  if (photoCameraView && !photoCameraView.classList.contains('hidden')) {
+    closeCameraView();
+  }
+}
+
+function handleStreamEnded() {
+  const photoCameraErrorEl = document.getElementById('photo-camera-error');
+  const photoCameraVideo = document.getElementById('photo-camera-video');
+
+  photoCameraErrorEl.textContent = 'Camera access was lost. Please click Cancel and try again.';
+  photoCameraErrorEl.classList.remove('hidden');
+  // Pause video to show last frame
+  if (photoCameraVideo) {
+    photoCameraVideo.pause();
+  }
+}
+
+async function handleCameraCapture() {
+  const photoCameraVideo = document.getElementById('photo-camera-video');
+  const photoCameraErrorEl = document.getElementById('photo-camera-error');
+  const photoCameraCaptureBtn = document.getElementById('photo-camera-capture-btn');
+  const photoCameraRetakeBtn = document.getElementById('photo-camera-retake-btn');
+  const photoCameraUseBtn = document.getElementById('photo-camera-use-btn');
+
+  photoCameraErrorEl.classList.add('hidden');
+
+  try {
+    const blob = await cameraCapture.capture();
+    // Pause video to show frozen frame as preview
+    photoCameraVideo.pause();
+    // Store the captured blob for later use
+    window.capturedPhotoBlob = blob;
+    // Swap button visibility
+    photoCameraCaptureBtn.classList.add('hidden');
+    photoCameraRetakeBtn.classList.remove('hidden');
+    photoCameraUseBtn.classList.remove('hidden');
+  } catch (err) {
+    photoCameraErrorEl.textContent = err.message || 'Failed to capture photo';
+    photoCameraErrorEl.classList.remove('hidden');
+  }
+}
+
+function retakeCamera() {
+  const photoCameraVideo = document.getElementById('photo-camera-video');
+  const photoCameraCaptureBtn = document.getElementById('photo-camera-capture-btn');
+  const photoCameraRetakeBtn = document.getElementById('photo-camera-retake-btn');
+  const photoCameraUseBtn = document.getElementById('photo-camera-use-btn');
+  const photoCameraErrorEl = document.getElementById('photo-camera-error');
+
+  // Resume video stream
+  photoCameraVideo.play();
+  // Swap button visibility back
+  photoCameraCaptureBtn.classList.remove('hidden');
+  photoCameraRetakeBtn.classList.add('hidden');
+  photoCameraUseBtn.classList.add('hidden');
+  photoCameraErrorEl.classList.add('hidden');
+  window.capturedPhotoBlob = null;
+}
+
+async function useCameraPhoto() {
+  const blob = window.capturedPhotoBlob;
+  if (!blob) {
+    alert('No photo captured');
+    return;
+  }
+
+  const file = cameraCapture.toFile(blob);
+  cameraCapture.stop();
+  handlePhotoSelect(file);
+  closeCameraView();
+  // Focus on submit button
+  const photoSubmitBtn = document.getElementById('photo-submit-btn');
+  photoSubmitBtn.focus();
 }

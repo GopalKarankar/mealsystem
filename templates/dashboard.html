@@ -72,6 +72,45 @@
           <p class="text-body text-sm">📷 Tap to choose a photo, or drag one here</p>
           <p class="text-body text-xs mt-1">Food photo, nutrition label, receipt, or menu</p>
         </div>
+
+        <div class="flex items-center gap-3 my-3" aria-hidden="true">
+          <div class="flex-1 border-t border-gray-200"></div>
+          <span class="text-xs text-body">or</span>
+          <div class="flex-1 border-t border-gray-200"></div>
+        </div>
+
+        <button id="photo-camera-trigger-btn" type="button"
+          aria-label="Use your camera to take a food photo"
+          aria-expanded="false"
+          class="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-brand-orange transition-colors focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 min-h-11">
+          <p class="text-body text-sm">📸 Use Camera</p>
+        </button>
+
+        <div id="photo-camera-view" class="hidden mt-3">
+          <div class="relative rounded-lg overflow-hidden bg-black">
+            <video id="photo-camera-video" class="w-full aspect-[4/3] object-cover" autoplay playsinline muted></video>
+          </div>
+          <div id="photo-camera-error" class="text-sm text-error mt-2 hidden" role="alert"></div>
+          <div class="flex items-center justify-between mt-3 gap-2">
+            <button id="photo-camera-close-btn" type="button" aria-label="Close camera"
+              class="px-4 py-3 min-h-11 text-sm text-body hover:text-heading transition focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 rounded-full">
+              Cancel
+            </button>
+            <button id="photo-camera-capture-btn" type="button" aria-label="Take photo"
+              class="px-6 py-3 min-h-11 bg-brand-orange text-white font-medium rounded-full shadow-card hover:shadow-hover hover:brightness-95 transition-all focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2">
+              📸 Capture
+            </button>
+            <button id="photo-camera-retake-btn" type="button" aria-label="Retake photo"
+              class="hidden px-6 py-3 min-h-11 bg-white border border-gray-300 text-heading font-medium rounded-full hover:border-brand-orange transition-colors focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2">
+              Retake
+            </button>
+            <button id="photo-camera-use-btn" type="button" aria-label="Use this photo"
+              class="hidden px-6 py-3 min-h-11 bg-brand-orange text-white font-medium rounded-full shadow-card hover:shadow-hover hover:brightness-95 transition-all focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2">
+              Use Photo
+            </button>
+          </div>
+        </div>
+
         <div id="photo-preview-wrap" class="hidden mt-3">
           <div class="flex items-center gap-3">
             <img id="photo-preview-img" class="w-20 h-20 object-cover rounded-lg border border-gray-200" alt="Selected photo preview" />
@@ -120,6 +159,7 @@
 
 {% block extra_scripts %}
 <script src="/static/js/audioRecorder.js"></script>
+<script src="/static/js/cameraCapture.js"></script>
 <script src="/static/js/mealInputTabs.js"></script>
 <script src="/static/js/macroChart.js"></script>
 <script src="/static/js/dashboard.js"></script>
