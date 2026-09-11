@@ -34,6 +34,9 @@ class MealItemsEditor {
           <div id="items-list" style="display: flex; flex-direction: column; gap: 12px;">
             ${this.items.map((item, idx) => this.renderItemRow(item, idx)).join("")}
           </div>
+          <button id="add-item-btn" type="button" style="margin-top: 12px; padding: 8px 16px; border: 1px dashed #FF7043; background-color: transparent; color: #FF7043; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: inherit; font-weight: 500; width: 100%; transition: background-color 0.2s;">
+            + Add Meal Item
+          </button>
         </div>
 
         <div style="display: flex; gap: 8px; justify-content: flex-end; padding-top: 16px; border-top: 1px solid #F3F4F6;">
@@ -43,6 +46,22 @@ class MealItemsEditor {
       </div>
     `;
     return html;
+  }
+
+  createEmptyItem() {
+    return {
+      item_name: "",
+      quantity: 1,
+      unit: "serving",
+      serving_size_grams: null,
+      calories: 0,
+      protein_g: 0,
+      carbs_g: 0,
+      fats_g: 0,
+      fiber_g: 0,
+      confidence: 0.85,
+      source: "user_input"
+    };
   }
 
   renderItemRow(item, idx) {

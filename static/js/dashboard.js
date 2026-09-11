@@ -127,13 +127,20 @@ class Dashboard {
 
     const cancelBtn = modal.querySelector("#cancel-btn");
     const saveBtn = modal.querySelector("#save-btn");
+    const addItemBtn = modal.querySelector("#add-item-btn");
 
     cancelBtn.onclick = () => {
       modal.remove();
     };
 
+    addItemBtn.onclick = () => {
+      const newIdx = editor.items.length;
+      editor.items.push(editor.createEmptyItem());
+      const itemsList = modal.querySelector("#items-list");
+      itemsList.insertAdjacentHTML("beforeend", editor.renderItemRow(editor.items[newIdx], newIdx));
+    };
+
     saveBtn.onclick = async () => {
-      editor.mount(".meal-editor");
       const editedItems = editor.getEditedItems();
 
       if (options.mode === 'patch') {
