@@ -512,3 +512,174 @@ class TestMealEndpoints:
         data = response.json()
         assert data['input_method'] == 'image'
         assert data['meal_items'][0]['item_name'] == 'banana'
+
+    @patch('meals.services.food_lookup_service.lookup_ifct')
+    @patch('meals.services.food_lookup_service.lookup_usda')
+    @patch('meals.services.meal_service.transcribe')
+    @patch('meals.services.meal_service.parse_meal')
+    def test_voice_with_ifct_match(self, mock_parse, mock_transcribe, mock_usda, mock_ifct):
+        """Voice meal with IFCT match — source should be 'ifct'."""
+        mock_transcribe.return_value = "I had rice and daal"
+        mock_parse.return_value = [
+            {
+                'item_name': 'rice',
+                'quantity': 1,
+                'unit': 'serving',
+                'serving_size_grams': 100,
+                'calories': 130,
+                'protein_g': 2.7,
+                'carbs_g': 28.0,
+                'fats_g': 0.3,
+                'fiber_g': 0.4,
+                'confidence': 0.85,
+            },
+            {
+                'item_name': 'daal',
+                'quantity': 1,
+                'unit': 'serving',
+                'serving_size_grams': 100,
+                'calories': 101,
+                'protein_g': 9.0,
+                'carbs_g': 18.0,
+                'fats_g': 0.3,
+                'fiber_g': 6.5,
+                'confidence': 0.85,
+            },
+        ]
+
+        mock_ifct.side_effect = [
+            {
+                'item_name': 'Rice, white, cooked',
+                'calories_per_100g': 130,
+                'protein_g_per_100g': 2.7,
+                'carbs_g_per_100g': 28.0,
+                'fats_g_per_100g': 0.3,
+                'fiber_g_per_100g': 0.4,
+                'source': 'ifct',
+            },
+            {
+                'item_name': 'Daal (Red lentils), cooked',
+                'calories_per_100g': 101,
+                'protein_g_per_100g': 9.0,
+                'carbs_g_per_100g': 18.0,
+                'fats_g_per_100g': 0.3,
+                'fiber_g_per_100g': 6.5,
+                'source': 'ifct',
+            },
+        ]
+        mock_usda.return_value = None
+
+        audio = SimpleUploadedFile('voice.wav', b'RIFF' + b'\x00' * 96)
+        response = self.client.post('/meals/voice', {'file': audio}, **self.headers)
+        assert response.status_code == 201
+        data = response.json()
+        assert len(data['meal_items']) == 2
+        assert data['meal_items'][0]['source'] == 'ifct'
+        assert data['meal_items'][1]['source'] == 'ifct'
+
+    @patch('meals.services.food_lookup_service.lookup_ifct')
+    @patch('meals.services.food_lookup_service.lookup_usda')
+    @patch('meals.services.meal_service.parse_meal')
+    def test_text_with_usda_match(self, mock_parse, mock_usda, mock_ifct):
+        """Text meal with USDA match (IFCT miss) — source should be 'usda_fdc'."""
+        mock_parse.return_value = [
+            {
+                'item_name': 'banana',
+                'quantity': 1,
+                'unit': 'medium',
+                'serving_size_grams': 100,
+                'calories': 89,
+                'protein_g': 1.09,
+                'carbs_g': 23,
+                'fats_g': 0.33,
+                'fiber_g': 2.6,
+                'confidence': 0.80,
+            },
+        ]
+
+        mock_ifct.return_value = None
+        mock_usda.return_value = {
+            'item_name': 'Banana, raw',
+            'calories_per_100g': 89,
+            'protein_g_per_100g': 1.09,
+            'carbs_g_per_100g': 23,
+            'fats_g_per_100g': 0.33,
+            'fiber_g_per_100g': 2.6,
+            'source': 'usda_fdc',
+        }
+
+        response = self.client.post(
+            '/meals/text',
+            data=json.dumps({'text': 'I ate a banana'}),
+            content_type='application/json',
+            **self.headers
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data['meal_items'][0]['source'] == 'usda_fdc'
+
+    @patch('meals.services.food_lookup_service.lookup_ifct')
+    @patch('meals.services.food_lookup_service.lookup_usda')
+    @patch('meals.services.meal_service.transcribe')
+    @patch('meals.services.meal_service.parse_meal')
+    def test_voice_with_llm_fallback(self, mock_parse, mock_transcribe, mock_usda, mock_ifct):
+        """Both IFCT and USDA miss — keep LLM estimate, source='llm_estimate'."""
+        mock_transcribe.return_value = "I had xyz food"
+        mock_parse.return_value = [
+            {
+                'item_name': 'xyz_nonexistent_food',
+                'quantity': 1,
+                'unit': 'serving',
+                'serving_size_grams': 100,
+                'calories': 150,
+                'protein_g': 5,
+                'carbs_g': 25,
+                'fats_g': 3,
+                'fiber_g': 1,
+                'confidence': 0.70,
+            },
+        ]
+
+        mock_ifct.return_value = None
+        mock_usda.return_value = None
+
+        audio = SimpleUploadedFile('voice.wav', b'RIFF' + b'\x00' * 96)
+        response = self.client.post('/meals/voice', {'file': audio}, **self.headers)
+        assert response.status_code == 201
+        data = response.json()
+        assert data['meal_items'][0]['source'] == 'llm_estimate'
+
+    @patch('meals.services.food_lookup_service.lookup_ifct')
+    @patch('meals.services.food_lookup_service.lookup_usda')
+    def test_patch_does_not_trigger_lookup(self, mock_usda, mock_ifct):
+        """PATCH (user edit) should NOT invoke lookup. Verify mocks are not called."""
+        from meals.models import Meal
+        meal = Meal.objects.create(user=self.user, original_text="Original meal")
+
+        updated_items = [
+            {
+                'item_name': 'rice',
+                'quantity': 2,
+                'unit': 'servings',
+                'serving_size_grams': 200,
+                'calories': 260,
+                'protein_g': 5.4,
+                'carbs_g': 56,
+                'fats_g': 0.6,
+                'fiber_g': 0.8,
+                'confidence': 0.85,
+            }
+        ]
+
+        response = self.client.patch(
+            f'/meals/{meal.id}',
+            data=json.dumps({'meal_items': updated_items}),
+            content_type='application/json',
+            **self.headers
+        )
+        assert response.status_code == 200
+        mock_ifct.assert_not_called()
+        mock_usda.assert_not_called()
+
+        data = response.json()
+        assert data['meal_items'][0]['source'] == 'llm_estimate'

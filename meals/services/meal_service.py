@@ -7,6 +7,7 @@ from .whisper_service import transcribe
 from .llm_service import parse_meal, LLMServiceError
 from .nutrition_service import validate_macros
 from .vision_service import scan_image
+from .food_lookup_service import resolve_item_macros
 from ..models import Meal, MealItem
 
 logger = logging.getLogger(__name__)
@@ -140,6 +141,7 @@ def _assemble_meal(user, raw_items: list, *, original_text: str, transcription_t
         except Exception as e:
             logger.warning("Error validating item %r: %s", raw, e)
 
+    validated = [resolve_item_macros(v) for v in validated]
     result = validate_macros(validated)
     for w in result["warnings"]:
         logger.warning("macro validation: %s", w)
@@ -244,6 +246,9 @@ def replace_meal_items(meal: Meal, payload_data: dict) -> Meal:
                 logger.warning("Dropping unparseable item in PATCH: %r, errors: %s", raw, serializer.errors)
         except Exception as e:
             logger.warning("Error validating item in PATCH %r: %s", raw, e)
+
+    # User-authored edits are trusted as-is; no nutrition lookup applied
+    # (lookup only runs on LLM-parsed items from voice/text/image input).
 
     result = validate_macros(validated)
     for w in result["warnings"]:

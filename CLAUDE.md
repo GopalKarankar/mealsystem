@@ -95,6 +95,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `NVIDIA_ASR_FUNCTION_ID` — Parakeet ASR model function ID (copy from build.nvidia.com for your chosen variant, required for voice transcription)
 - `NVIDIA_ASR_GRPC_URI` — Parakeet ASR gRPC endpoint (default: `grpc.nvcf.nvidia.com:443`)
 - `NVIDIA_ASR_LANGUAGE_CODE` — Language code for transcription (default: `en-US`)
+- `USDA_API_KEY` — USDA FoodData Central API key (get from [fdc.nal.usda.gov](https://fdc.nal.usda.gov/api-guide.html); optional demo key for testing, ~30 requests/hr; production key allows 1000/hr)
+- `USDA_API_BASE_URL` — USDA FDC API endpoint (default: `https://api.nal.usda.gov/fdc/v1`)
 - `GOOGLE_CLIENT_ID` — Google OAuth client ID (from Google Cloud Console)
 - `GOOGLE_CLIENT_SECRET` — Google OAuth client secret (from Google Cloud Console)
 
@@ -291,6 +293,7 @@ meal_system/
 │   │   ├── nutrition_service.py # validate_macros()
 │   │   ├── llm_service.py       # parse_meal() — Groq Llama
 │   │   ├── whisper_service.py   # transcribe() — NVIDIA Parakeet
+│   │   ├── food_lookup_service.py # IFCT + USDA FDC lookup
 │   │   └── meal_service.py      # Business logic: create_meal_from_audio(), replace_meal_items(), etc.
 │   └── admin.py               # Django admin config
 ├── templates/

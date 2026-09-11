@@ -146,6 +146,10 @@ NVIDIA_ASR_FUNCTION_ID = os.environ.get('NVIDIA_ASR_FUNCTION_ID', '')
 NVIDIA_ASR_GRPC_URI = os.environ.get('NVIDIA_ASR_GRPC_URI', 'grpc.nvcf.nvidia.com:443')
 NVIDIA_ASR_LANGUAGE_CODE = os.environ.get('NVIDIA_ASR_LANGUAGE_CODE', 'en-US')
 
+# USDA FoodData Central (nutrition lookup)
+USDA_API_KEY = os.environ.get('USDA_API_KEY', '')
+USDA_API_BASE_URL = os.environ.get('USDA_API_BASE_URL', 'https://api.nal.usda.gov/fdc/v1')
+
 # Google OAuth
 GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID', '')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '')

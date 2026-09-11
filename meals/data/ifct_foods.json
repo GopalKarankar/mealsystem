@@ -1,0 +1,42 @@
+[
+  {
+    "item_name": "Rice, white, cooked",
+    "aliases": ["rice", "white rice", "basmati", "jasmine"],
+    "calories_per_100g": 130,
+    "protein_g_per_100g": 2.7,
+    "carbs_g_per_100g": 28.0,
+    "fats_g_per_100g": 0.3,
+    "fiber_g_per_100g": 0.4,
+    "source_detail": "IFCT 2017, NIN (Longvah et al.)"
+  },
+  {
+    "item_name": "Daal (Red lentils), cooked",
+    "aliases": ["daal", "dal", "lentils", "red lentils", "masoor"],
+    "calories_per_100g": 101,
+    "protein_g_per_100g": 9.0,
+    "carbs_g_per_100g": 18.0,
+    "fats_g_per_100g": 0.3,
+    "fiber_g_per_100g": 6.5,
+    "source_detail": "IFCT 2017, NIN (Longvah et al.)"
+  },
+  {
+    "item_name": "Roti (Wheat), plain",
+    "aliases": ["roti", "chapati", "wheat bread", "flatbread"],
+    "calories_per_100g": 283,
+    "protein_g_per_100g": 11.0,
+    "carbs_g_per_100g": 58.0,
+    "fats_g_per_100g": 1.0,
+    "fiber_g_per_100g": 8.5,
+    "source_detail": "IFCT 2017, NIN (Longvah et al.)"
+  },
+  {
+    "item_name": "Paneer (Indian cheese), plain",
+    "aliases": ["paneer", "cottage cheese", "chenna"],
+    "calories_per_100g": 265,
+    "protein_g_per_100g": 25.0,
+    "carbs_g_per_100g": 1.2,
+    "fats_g_per_100g": 20.0,
+    "fiber_g_per_100g": 0,
+    "source_detail": "IFCT 2017, NIN (Longvah et al.)"
+  }
+]
