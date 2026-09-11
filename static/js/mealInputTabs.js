@@ -201,11 +201,15 @@ async function handleTypeSubmit() {
   typeStatus.textContent = 'Adding meal...';
 
   try {
-    const response = await apiPost('/meals/text', { text });
+    const response = await apiPost('/meals/text/preview', { text });
+    dashboard.openMealEditorModal(response.items, {
+      mode: 'confirm',
+      inputMethod: 'text',
+      originalText: text
+    });
     typeTextarea.value = '';
     typeStatus.textContent = '';
     typeSubmitBtn.disabled = false;
-    dashboard.handleMealResult(response);
   } catch (error) {
     typeStatus.textContent = error.body?.detail || error.message || 'Failed to add meal';
     typeSubmitBtn.disabled = false;
@@ -228,11 +232,16 @@ async function handlePhotoSubmit() {
   photoStatus.textContent = 'Scanning photo… this can take up to 75 seconds if the vision service is busy';
 
   try {
-    const response = await apiPostFile('/meals/image', formData, 75000);
+    const response = await apiPostFile('/meals/image/preview', formData, 75000);
+    dashboard.openMealEditorModal(response.items, {
+      mode: 'confirm',
+      inputMethod: 'image',
+      originalText: response.original_text,
+      transcriptionText: response.transcription_text
+    });
     clearPhotoSelection();
     photoStatus.textContent = '';
     photoSubmitBtn.disabled = false;
-    dashboard.handleMealResult(response);
   } catch (error) {
     let message = error.body?.detail || error.message || 'Failed to scan photo';
 
@@ -383,12 +392,17 @@ async function handleManualSubmit() {
   status.textContent = 'Adding meal...';
 
   try {
-    const response = await apiPost('/meals/text', { text, category: category.value });
+    const response = await apiPost('/meals/text/preview', { text });
+    dashboard.openMealEditorModal(response.items, {
+      mode: 'confirm',
+      inputMethod: 'text',
+      originalText: text,
+      mealCategory: category.value
+    });
     foodName.value = '';
     remark.value = '';
     status.textContent = '';
     submitBtn.disabled = false;
-    dashboard.handleMealResult(response);
   } catch (error) {
     status.textContent = error.body?.detail || error.message || 'Failed to add meal';
     submitBtn.disabled = false;

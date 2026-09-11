@@ -107,6 +107,62 @@ class Dashboard {
     }
   }
 
+  editMeal(mealId) {
+    const meal = this.meals.find(m => m.meal_id === parseInt(mealId));
+    if (!meal) return;
+    this.openMealEditorModal(meal.meal_items, {mode: 'patch', mealId});
+  }
+
+  openMealEditorModal(items, options) {
+    const modal = document.createElement("div");
+    modal.style.cssText = "position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;";
+
+    const editor = new MealItemsEditor(items, {
+      showTranscription: options.showTranscription,
+      transcription: options.transcription || ""
+    });
+
+    modal.innerHTML = `<div style="background: white; border-radius: 12px; padding: 0; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.15);">${editor.render()}</div>`;
+    document.body.appendChild(modal);
+
+    const cancelBtn = modal.querySelector("#cancel-btn");
+    const saveBtn = modal.querySelector("#save-btn");
+
+    cancelBtn.onclick = () => {
+      modal.remove();
+    };
+
+    saveBtn.onclick = async () => {
+      editor.mount(".meal-editor");
+      const editedItems = editor.getEditedItems();
+
+      if (options.mode === 'patch') {
+        await this.updateMeal(options.mealId, editedItems);
+      } else if (options.mode === 'confirm') {
+        const confirmPayload = {
+          input_method: options.inputMethod,
+          original_text: options.originalText || "",
+          transcription_text: options.transcriptionText,
+          meal_category: options.mealCategory,
+          meal_items: editedItems
+        };
+        if (this.isLoading) return;
+        this.isLoading = true;
+        try {
+          const response = await apiPost('/meals/confirm', confirmPayload);
+          this.handleMealResult(response);
+          modal.remove();
+        } catch (error) {
+          console.error('Error confirming meal:', error);
+          this.showError('Failed to save meal');
+        } finally {
+          this.isLoading = false;
+        }
+      }
+      modal.remove();
+    };
+  }
+
   updateTotals() {
     this.dailyTotals = {
       calories: 0,
@@ -239,7 +295,10 @@ class Dashboard {
             <p class="font-semibold text-heading">${formatNumber(meal.totals.carbs_g, 1)}g</p>
           </div>
         </div>
-        <button class="text-sm text-error hover:opacity-80 transition" onclick="dashboard.deleteMeal('${meal.meal_id}')">Delete</button>
+        <div style="display: flex; gap: 12px;">
+          <button class="text-sm text-brand-orange hover:opacity-80 transition" onclick="dashboard.editMeal('${meal.meal_id}')" style="color: #FF7043; cursor: pointer; border: none; background: none; font-size: inherit; font-family: inherit;">Edit</button>
+          <button class="text-sm text-error hover:opacity-80 transition" onclick="dashboard.deleteMeal('${meal.meal_id}')" style="color: #D64444; cursor: pointer; border: none; background: none; font-size: inherit; font-family: inherit;">Delete</button>
+        </div>
       </div>
     `).join('');
   }
@@ -314,12 +373,18 @@ async function handleRecord() {
       await new Promise(r => setTimeout(r, 100)); // Let recorder finish
       await recorder.uploadAndProcess(
         () => {},
-        (meal) => {
-          dashboard.handleMealResult(meal);
+        (previewData) => {
+          dashboard.openMealEditorModal(previewData.items, {
+            mode: 'confirm',
+            inputMethod: 'voice',
+            originalText: previewData.original_text,
+            transcriptionText: previewData.transcription_text,
+            showTranscription: true,
+            transcription: previewData.transcription_text
+          });
           recordBtn.textContent = '🎤 Record';
           recordBtn.disabled = false;
-          statusEl.textContent = 'Meal added!';
-          setTimeout(() => { statusEl.textContent = ''; }, 3000);
+          statusEl.textContent = '';
         },
         (error) => {
           statusEl.textContent = `Error: ${error.message}`;

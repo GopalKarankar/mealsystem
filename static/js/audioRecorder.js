@@ -102,7 +102,7 @@ class AudioRecorder {
       formData.append('file', audioBlob, `recording${extension}`);
 
       try {
-        const result = await apiPostFile('/meals/voice', formData);
+        const result = await apiPostFile('/meals/voice/preview', formData);
         onSuccess(result);
       } catch (error) {
         // apiPostFile already attaches the parsed backend response as error.status/error.body
