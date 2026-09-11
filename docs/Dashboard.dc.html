@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f8f5f2; color: #333; }
+    a { color: #ff6b35; text-decoration: none; }
+    a:hover { color: #ff5520; }
+  </style>
+</helmet>
+
+<div style="background: #f8f5f2; min-height: 100vh;">
+  <!-- Header -->
+  <header style="background: white; padding: 16px 24px; border-bottom: 1px solid #eee; position: sticky; top: 0; z-index: 10;">
+    <div style="max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between;">
+      <div style="font-size: 20px; font-weight: 700;"><span style="color: #333;">Track</span><span style="color: #ff6b35;">Intake</span></div>
+      <nav style="display: flex; gap: 32px; align-items: center;">
+        <a href="#" style="color: #666; font-size: 14px;">Home</a>
+        <a href="#" style="color: #666; font-size: 14px;">Tools</a>
+        <a href="#" style="color: #666; font-size: 14px;">Health</a>
+        <a href="#" style="color: #666; font-size: 14px;">Diet</a>
+        <a href="#" style="color: #666; font-size: 14px;">Progress</a>
+        <a href="#" style="color: #666; font-size: 14px;">Blogs</a>
+      </nav>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 32px; height: 32px; background: #ff6b35; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px;">SU</div>
+        <span style="font-size: 13px; color: #666;">Smit sabansh kamkar</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main style="max-width: 1400px; margin: 0 auto; padding: 40px 24px;">
+    <!-- Hero Section -->
+    <section style="background: white; border-radius: 12px; padding: 40px; margin-bottom: 40px; display: flex; gap: 40px; align-items: center;">
+      <div style="flex: 1;">
+        <h1 style="font-size: 32px; margin-bottom: 8px; color: #222;"><span style="color: #333;">Fuel your journey with </span><span style="color: #ff6b35;">smart nutrition</span></h1>
+        <p style="color: #999; font-size: 14px; margin-bottom: 24px;">Log, learn, and stay ahead of your health goals every day.</p>
+        
+        <!-- Stats Cards -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+          <div style="background: #fafafa; padding: 20px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 12px; color: #999; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+              <span style="color: #ff6b35;">⚡</span> Calories Today
+            </div>
+            <div style="font-size: 28px; font-weight: 700; color: #222;">0</div>
+            <div style="font-size: 12px; color: #999; margin-top: 4px;">Goal</div>
+          </div>
+          
+          <div style="background: #fafafa; padding: 20px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 12px; color: #999; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+              <span style="color: #4ba3ff;">💧</span> Water Intake
+            </div>
+            <div style="font-size: 28px; font-weight: 700; color: #222;">0 Glasses</div>
+            <div style="font-size: 12px; color: #999; margin-top: 4px;">Goal: 10 Glasses</div>
+          </div>
+          
+          <div style="background: #fafafa; padding: 20px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 12px; color: #999; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+              <span style="color: #ff6b35;">❤️</span> Current Weight
+            </div>
+            <div style="font-size: 28px; font-weight: 700; color: #222;">0</div>
+            <div style="font-size: 12px; color: #999; margin-top: 4px;">1,261 Logged</div>
+          </div>
+        </div>
+      </div>
+      
+      <div style="flex: 1;">
+        <div style="background: linear-gradient(135deg, #fff5f0 0%, #ffe8e0 100%); border-radius: 12px; padding: 30px; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+          <div style="text-align: center; position: relative; z-index: 2;">
+            <div style="font-size: 13px; color: #ff6b35; margin-bottom: 12px;">📊 Your Stats</div>
+            <div style="font-size: 24px; font-weight: 700; color: #222; margin-bottom: 20px;">Food & Nutrition Overview</div>
+            <svg width="180" height="140" viewBox="0 0 180 140" style="margin: 0 auto;">
+              <rect x="20" y="80" width="12" height="50" fill="#ff6b35" rx="2"/>
+              <rect x="40" y="60" width="12" height="70" fill="#ffa366" rx="2"/>
+              <rect x="60" y="40" width="12" height="90" fill="#ff6b35" rx="2"/>
+              <rect x="80" y="70" width="12" height="60" fill="#ffa366" rx="2"/>
+              <rect x="100" y="50" width="12" height="80" fill="#ff6b35" rx="2"/>
+              <circle cx="140" cy="60" r="20" fill="#ffd699" opacity="0.8"/>
+              <circle cx="150" cy="50" r="15" fill="#ffb84d" opacity="0.8"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quick Meal Logger -->
+    <section style="margin-bottom: 40px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <!-- Left: Add Meals -->
+        <div style="background: white; border-radius: 12px; padding: 32px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 24px;">
+            <span style="font-size: 20px;">🍽️</span>
+            <h2 style="font-size: 18px; font-weight: 700;">Add Meals</h2>
+          </div>
+          <p style="color: #999; font-size: 13px; margin-bottom: 20px;">Track your nutrition smartly & simply</p>
+          
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+            <input type="text" placeholder="Food 1" style="padding: 10px 12px; border: 1px solid #eee; border-radius: 6px; font-size: 13px;" />
+            <input type="text" placeholder="Remark (optional)" style="padding: 10px 12px; border: 1px solid #eee; border-radius: 6px; font-size: 13px;" />
+            <div style="display: flex; gap: 8px;">
+              <input type="time" style="flex: 1; padding: 10px 12px; border: 1px solid #eee; border-radius: 6px; font-size: 13px;" />
+              <select style="flex: 1; padding: 10px 12px; border: 1px solid #eee; border-radius: 6px; font-size: 13px;">
+                <option>Select time</option>
+              </select>
+            </div>
+          </div>
+          
+          <div style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+            <span style="background: #f5f5f5; padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #666;">Early Stores</span>
+            <span style="background: #f5f5f5; padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #666;">Mid-Morning Snack</span>
+            <span style="background: #f5f5f5; padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #666;">Lunch</span>
+            <span style="background: #f5f5f5; padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #666;">Afternoon Snack</span>
+          </div>
+          
+          <div style="display: flex; gap: 8px; margin-bottom: 20px;">
+            <button style="flex: 1; padding: 8px 12px; background: #ff6b35; color: white; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 500;">Log Meal</button>
+            <button style="flex: 1; padding: 8px 12px; background: #f5f5f5; color: #666; border: none; border-radius: 6px; font-size: 12px; cursor: pointer;">Delete</button>
+          </div>
+          
+          <a href="#" style="display: block; color: #ff6b35; font-size: 12px; margin-bottom: 8px;">+ Add Item</a>
+          <a href="#" style="display: block; color: #ff6b35; font-size: 12px;">+ Add Another Meal</a>
+          
+          <button style="width: 100%; padding: 12px; background: #ff6b35; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; margin-top: 20px; cursor: pointer;">+ Log Meal(s)</button>
+        </div>
+        
+        <!-- Right: Logged Meals -->
+        <div style="background: white; border-radius: 12px; padding: 32px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="font-size: 18px; font-weight: 700;">Logged Meals</h2>
+            <a href="#" style="font-size: 12px; color: #ff6b35;">✎ View Full Log</a>
+          </div>
+          
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #eee;">
+            <span style="font-size: 16px;">🔍</span>
+            <input type="date" value="09/11/2026" style="flex: 1; border: none; font-size: 13px; color: #666;" />
+          </div>
+          
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px;">
+            <span style="background: #ff6b35; color: white; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;">All (8)</span>
+            <span style="background: #f5f5f5; padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #666;">Early-Morning (0)</span>
+            <span style="background: #f5f5f5; padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #666;">Breakfast (0)</span>
+            <span style="background: #f5f5f5; padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #666;">Mid-Morning (0)</span>
+            <span style="background: #f5f5f5; padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #666;">Lunch (0)</span>
+            <span style="background: #f5f5f5; padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #666;">Afternoon Snack (0)</span>
+            <span style="background: #f5f5f5; padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #666;">Dinner (0)</span>
+            <span style="background: #f5f5f5; padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #666;">Bedtime (0)</span>
+          </div>
+          
+          <div style="padding: 24px; background: #fafafa; border-radius: 8px; text-align: center;">
+            <p style="color: #999; font-size: 13px;">No meals logged for this date.</p>
+            <p style="color: #ccc; font-size: 12px; margin-top: 4px;">Use the form above to add a meal.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Water Intake Tracker -->
+    <section style="margin-bottom: 40px;">
+      <div style="background: white; border-radius: 12px; padding: 40px; text-align: center;">
+        <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 8px;">Water Intake Tracker 💧</h2>
+        <input type="date" value="09/11/2026" style="border: none; color: #999; font-size: 13px; margin-bottom: 24px; cursor: pointer;" />
+        
+        <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 24px; flex-wrap: wrap;">
+          <div style="width: 16px; height: 32px; background: #eee; border-radius: 4px;"></div>
+          <div style="width: 16px; height: 32px; background: #eee; border-radius: 4px;"></div>
+          <div style="width: 16px; height: 32px; background: #eee; border-radius: 4px;"></div>
+          <div style="width: 16px; height: 32px; background: #eee; border-radius: 4px;"></div>
+          <div style="width: 16px; height: 32px; background: #eee; border-radius: 4px;"></div>
+          <div style="width: 16px; height: 32px; background: #eee; border-radius: 4px;"></div>
+          <div style="width: 16px; height: 32px; background: #eee; border-radius: 4px;"></div>
+          <div style="width: 16px; height: 32px; background: #eee; border-radius: 4px;"></div>
+          <div style="width: 16px; height: 32px; background: #eee; border-radius: 4px;"></div>
+          <div style="width: 16px; height: 32px; background: #eee; border-radius: 4px;"></div>
+        </div>
+        
+        <p style="color: #999; font-size: 13px; margin-bottom: 20px;">0 of 10 glasses completed</p>
+        <button style="padding: 10px 20px; background: #ff6b35; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;">⬆️ Add a Glass</button>
+      </div>
+    </section>
+
+    <!-- Health Tools -->
+    <section style="margin-bottom: 40px;">
+      <div style="text-align: center; margin-bottom: 32px;">
+        <h2 style="font-size: 24px; font-weight: 700; margin-bottom: 8px;">Health Tools</h2>
+        <p style="color: #999; font-size: 13px;">Calculate and track your key health metrics</p>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+        <div style="background: white; border-radius: 12px; padding: 32px; text-align: center;">
+          <div style="font-size: 32px; margin-bottom: 16px;">🔒</div>
+          <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 4px;">Weight Tracker</h3>
+          <p style="color: #999; font-size: 12px;">Monitor your weight progress over time</p>
+        </div>
+        
+        <div style="background: white; border-radius: 12px; padding: 32px; text-align: center;">
+          <div style="font-size: 32px; margin-bottom: 16px;">📎</div>
+          <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 4px;">BMI Calculator</h3>
+          <p style="color: #999; font-size: 12px;">Calculate your Body Mass Index quickly</p>
+        </div>
+        
+        <div style="background: white; border-radius: 12px; padding: 32px; text-align: center;">
+          <div style="font-size: 32px; margin-bottom: 16px;">💓</div>
+          <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 4px;">Body Fat Calculator</h3>
+          <p style="color: #999; font-size: 12px;">Estimate your body fat percentage</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Diet Recommendations -->
+    <section style="margin-bottom: 40px;">
+      <div style="text-align: center; margin-bottom: 32px;">
+        <h2 style="font-size: 24px; font-weight: 700; margin-bottom: 8px;">Personalized Diet Recommendations</h2>
+        <p style="color: #999; font-size: 13px;">AI-powered meal suggestions based on your goals</p>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+        <div style="background: white; border-radius: 12px; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #ff6b35 0%, #ff8555 100%); height: 160px; background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 300 200%22><rect fill=%22%23ff6b35%22 width=%22300%22 height=%22200%22/><circle cx=%2250%22 cy=%2250%22 r=%2230%22 fill=%22%23ff5500%22 opacity=%220.3%22/><circle cx=%22250%22 cy=%22150%22 r=%2240%22 fill=%22%23ff8555%22 opacity=%220.3%22/></svg>'); background-size: cover;"></div>
+          <div style="padding: 20px;">
+            <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 8px;">Breakfast</h3>
+            <p style="color: #999; font-size: 12px; margin-bottom: 12px;">Quinoa bowl with fresh berries</p>
+            <div style="display: flex; justify-content: space-between; font-size: 12px;">
+              <span style="color: #ff6b35; font-weight: 600;">320 Kcal</span>
+              <span style="color: #ff6b35; font-weight: 600;">25g protein</span>
+            </div>
+          </div>
+        </div>
+        
+        <div style="background: white; border-radius: 12px; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #ffa366 0%, #ffb87d 100%); height: 160px; background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 300 200%22><rect fill=%22%23ffa366%22 width=%22300%22 height=%22200%22/><circle cx=%2280%22 cy=%2280%22 r=%2235%22 fill=%22%23ff8555%22 opacity=%220.3%22/><circle cx=%22220%22 cy=%22120%22 r=%2245%22 fill=%22%23ffb87d%22 opacity=%220.3%22/></svg>'); background-size: cover;"></div>
+          <div style="padding: 20px;">
+            <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 8px;">Lunch</h3>
+            <p style="color: #999; font-size: 12px; margin-bottom: 12px;">Grilled salmon with roasted vegetables</p>
+            <div style="display: flex; justify-content: space-between; font-size: 12px;">
+              <span style="color: #ff6b35; font-weight: 600;">450 Kcal</span>
+              <span style="color: #ff6b35; font-weight: 600;">35g protein</span>
+            </div>
+          </div>
+        </div>
+        
+        <div style="background: white; border-radius: 12px; overflow: hidden;">
+          <div style="background: linear-gradient(135deg, #ffcc99 0%, #ffdd99 100%); height: 160px; background-image: url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 300 200%22><rect fill=%22%23ffcc99%22 width=%22300%22 height=%22200%22/><circle cx=%22100%22 cy=%2270%22 r=%2232%22 fill=%22%23ffb87d%22 opacity=%220.3%22/><circle cx=%22200%22 cy=%22130%22 r=%2240%22 fill=%22%23ffdd99%22 opacity=%220.3%22/></svg>'); background-size: cover;"></div>
+          <div style="padding: 20px;">
+            <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 8px;">Dinner</h3>
+            <p style="color: #999; font-size: 12px; margin-bottom: 12px;">Chickpea stir-fry with mixed vegetables</p>
+            <div style="display: flex; justify-content: space-between; font-size: 12px;">
+              <span style="color: #ff6b35; font-weight: 600;">380 Kcal</span>
+              <span style="color: #ff6b35; font-weight: 600;">18g protein</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div style="text-align: center; margin-top: 32px;">
+        <button style="padding: 12px 32px; background: #ff6b35; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">View Full Diet Plan →</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer style="background: white; padding: 40px 24px; border-top: 1px solid #eee;">
+    <div style="max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; margin-bottom: 32px;">
+      <div>
+        <div style="font-size: 16px; font-weight: 700; margin-bottom: 16px;"><span style="color: #333;">Track</span><span style="color: #ff6b35;">Intake</span></div>
+        <p style="color: #999; font-size: 12px;">Your smart companion for everyday healthy eating — log meals, track water, and much grade every day with joy.</p>
+        <div style="display: flex; gap: 16px; margin-top: 16px;">
+          <a href="#" style="color: #999; font-size: 14px;">f</a>
+          <a href="#" style="color: #999; font-size: 14px;">𝕏</a>
+          <a href="#" style="color: #999; font-size: 14px;">◐</a>
+        </div>
+      </div>
+      
+      <div>
+        <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 16px; color: #222;">Quick Links</h3>
+        <ul style="list-style: none;">
+          <li style="margin-bottom: 8px;"><a href="#" style="color: #999; font-size: 12px;">Dashboard</a></li>
+          <li style="margin-bottom: 8px;"><a href="#" style="color: #999; font-size: 12px;">Appointments</a></li>
+          <li style="margin-bottom: 8px;"><a href="#" style="color: #999; font-size: 12px;">Profile</a></li>
+          <li><a href="#" style="color: #999; font-size: 12px;">Health</a></li>
+        </ul>
+      </div>
+      
+      <div>
+        <h3 style="font-size: 14px; font-weight: 700; margin-bottom: 16px; color: #222;">Legal</h3>
+        <ul style="list-style: none;">
+          <li style="margin-bottom: 8px;"><a href="#" style="color: #999; font-size: 12px;">Privacy Policy</a></li>
+          <li style="margin-bottom: 8px;"><a href="#" style="color: #999; font-size: 12px;">Terms & Conditions</a></li>
+          <li style="margin-bottom: 8px;"><a href="#" style="color: #999; font-size: 12px;">Refund & Return Policy</a></li>
+          <li><a href="#" style="color: #999; font-size: 12px;">Contact</a></li>
+        </ul>
+      </div>
+    </div>
+    
+    <div style="text-align: center; padding-top: 24px; border-top: 1px solid #eee;">
+      <p style="color: #999; font-size: 11px;">© 2026 TrackIntake. All rights reserved. Made with ❤️</p>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

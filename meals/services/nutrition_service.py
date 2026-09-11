@@ -1,4 +1,5 @@
-import logging
+﻿import logging
+from .llm_service import parse_meal, LLMServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -42,4 +43,41 @@ def validate_macros(meal_items: list[dict]) -> dict:
         "valid": len(warnings) == 0,
         "warnings": warnings,
         "corrected_items": corrected_items,
+    }
+
+
+def get_nutrition_estimate(food_name: str, quantity: float, unit: str) -> dict:
+    """Get nutrition estimate for a food item via LLM."""
+    prompt = f"""Provide nutrition information for this food item. Return JSON only, no explanation.
+Food: {quantity}{unit} of {food_name}
+
+Return this exact JSON format:
+{{
+  "calories": <integer>,
+  "protein_g": <float>,
+  "carbs_g": <float>,
+  "fats_g": <float>,
+  "fiber_g": <float>
+}}"""
+
+    try:
+        result = parse_meal(prompt)
+        if result and len(result) > 0:
+            item = result[0]
+            return {
+                "calories": item.get("calories", 0),
+                "protein_g": item.get("protein_g", 0),
+                "carbs_g": item.get("carbs_g", 0),
+                "fats_g": item.get("fats_g", 0),
+                "fiber_g": item.get("fiber_g", 0),
+            }
+    except (LLMServiceError, Exception) as e:
+        logger.warning("Failed to get nutrition for %s: %s", food_name, e)
+
+    return {
+        "calories": 0,
+        "protein_g": 0,
+        "carbs_g": 0,
+        "fats_g": 0,
+        "fiber_g": 0,
     }
