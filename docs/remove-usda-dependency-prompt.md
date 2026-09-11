@@ -209,3 +209,16 @@ A: Possible, but adds complexity. Better to decide: either remove it entirely (c
 - Groq Llama 3.3-70b provides reasonable macro estimates for typical foods; accuracy is acceptable for a tracking app where users can always edit.
 - If accuracy becomes a user pain point, revisit this decision and implement a lightweight API-based lookup instead of a seeded collection.
 
+---
+
+## Note: USDA/IFCT Lookup Reintroduced (2026-09-11)
+
+As of 2026-09-11, a new implementation (`docs/add-usda-ifct-nutrition-lookup-prompt.md`) reintroduces nutrition lookup using the exact approach recommended in "If You Need Nutrition Lookup Again" (§ this document, lines 151–166):
+
+- **USDA FDC via live API** (no bulk CSV download, no seeding, minimal overhead)
+- **IFCT as a small curated bundled dataset** (~100–500 common Indian foods, not the multi-GB seeding anti-pattern)
+- **On-demand lookup** with graceful fallback to LLM if any API/match fails
+- Uses the existing `MealItem.source` field ("ifct", "usda_fdc", or "llm_estimate")
+
+This avoids the pitfalls that prompted this document's removal (maintenance burden, data staleness, seeding complexity) while recovering the accuracy benefit of authoritative nutrition data. Refer to `docs/add-usda-ifct-nutrition-lookup-prompt.md` for implementation details.
+
