@@ -208,18 +208,9 @@ def resolve_item_macros(item: dict) -> dict:
         unit = str(item.get("unit", "")).lower()
         quantity = item.get("quantity", 0)
 
-        if quantity > 0 and unit in ("g", "kg", "oz", "lb"):
-            if unit == "kg":
-                grams = quantity * 1000
-            elif unit == "oz":
-                grams = quantity * 28.3495
-            elif unit == "lb":
-                grams = quantity * 453.592
-            else:
-                grams = quantity
-
-            if grams > 0:
-                scale_factor = grams / 100.0
+        grams_per_unit = get_gram_equivalent(unit)
+        if quantity > 0 and grams_per_unit:
+            scale_factor = (quantity * grams_per_unit) / 100.0
 
     if scale_factor is None:
         logger.warning(
@@ -239,3 +230,40 @@ def resolve_item_macros(item: dict) -> dict:
     item["source"] = match["source"]
 
     return item
+
+
+ALLOWED_UNITS = {
+    "g": 1.0, "kg": 1000.0, "ml": 1.0, "l": 1000.0, "oz": 28.3495,
+    "cup": 240.0, "bowl": 400.0, "plate": 300.0,
+    "piece": None, "serving": None,
+}
+
+
+def get_gram_equivalent(unit: str) -> float | None:
+    """Approximate grams for one unit, or None if unconvertible (piece/serving)."""
+    return ALLOWED_UNITS.get(str(unit).lower())
+
+
+def needs_fresh_lookup(old_name: str, new_name: str, threshold: float = 0.85) -> bool:
+    """String-similarity heuristic: does an item-name edit warrant a fresh IFCT/USDA lookup
+    (different food) rather than a proportional macro rescale (same food, qty/unit tweak)?"""
+    from difflib import SequenceMatcher
+    ratio = SequenceMatcher(None, old_name.lower().strip(), new_name.lower().strip()).ratio()
+    return ratio < threshold
+
+
+def rescale_item_macros(base_macros: dict, *, old_quantity: float, old_unit: str,
+                         new_quantity: float, new_unit: str) -> dict | None:
+    """Proportionally scale base_macros (server-authoritative, e.g. a stored MealItem's values)
+    from (old_quantity, old_unit) to (new_quantity, new_unit). Returns None if either unit is
+    unconvertible or old_quantity*old_grams <= 0 — caller must fall back to a fresh lookup."""
+    old_grams = get_gram_equivalent(old_unit)
+    new_grams = get_gram_equivalent(new_unit)
+    if not old_grams or not new_grams:
+        return None
+    old_total = old_quantity * old_grams
+    if old_total <= 0:
+        return None
+    scale = (new_quantity * new_grams) / old_total
+    return {k: base_macros.get(k, 0) * scale for k in
+            ("calories", "protein_g", "carbs_g", "fats_g", "fiber_g")}

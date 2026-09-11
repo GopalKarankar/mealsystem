@@ -9,7 +9,8 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 from .models import Meal, MealItem
-from .serializers import MealSerializer, MealUpdateSerializer, DashboardSerializer, MealTextInputSerializer
+from .serializers import (MealSerializer, MealUpdateSerializer, DashboardSerializer, MealTextInputSerializer,
+                           ConfirmMealSerializer)
 from .services.meal_service import (
     create_meal_from_audio,
     create_meal_from_text,
@@ -22,8 +23,14 @@ from .services.meal_service import (
     ALLOWED_AUDIO_EXTENSIONS,
     ALLOWED_IMAGE_EXTENSIONS,
     sniff_image_extension,
+    _parse_audio_to_items,
+    _parse_text_to_items,
+    _parse_image_to_items,
+    _persist_meal,
+    resolve_confirmed_items,
 )
 from .services.llm_service import LLMServiceError
+from .throttling import LLMEndpointUserThrottle, LLMEndpointIPThrottle
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
@@ -31,6 +38,7 @@ logger = logging.getLogger(__name__)
 
 class CreateMealVoiceView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [LLMEndpointUserThrottle, LLMEndpointIPThrottle]
 
     def post(self, request):
         if 'file' not in request.FILES:
@@ -117,6 +125,7 @@ class CreateMealVoiceView(APIView):
 
 class CreateMealTextView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [LLMEndpointUserThrottle, LLMEndpointIPThrottle]
 
     def post(self, request):
         serializer = MealTextInputSerializer(data=request.data)
@@ -154,6 +163,7 @@ class CreateMealTextView(APIView):
 
 class CreateMealImageView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [LLMEndpointUserThrottle, LLMEndpointIPThrottle]
 
     def post(self, request):
         if 'file' not in request.FILES:
@@ -238,6 +248,242 @@ class CreateMealImageView(APIView):
                     os.remove(temp_path)
                 except Exception:
                     pass
+
+
+class CreateMealVoicePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [LLMEndpointUserThrottle, LLMEndpointIPThrottle]
+
+    def post(self, request):
+        if 'file' not in request.FILES:
+            return Response(
+                {"detail": "No audio file provided"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        file = request.FILES['file']
+        ext = os.path.splitext(file.name or "")[1].lower()
+
+        if ext not in ALLOWED_AUDIO_EXTENSIONS:
+            return Response(
+                {"detail": f"Unsupported audio format '{ext}'. Allowed: wav, mp3, m4a, webm"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        max_bytes = settings.MAX_AUDIO_SIZE_MB * 1024 * 1024
+        if file.size > max_bytes:
+            return Response(
+                {"detail": f"Audio exceeds {settings.MAX_AUDIO_SIZE_MB}MB limit"},
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            )
+
+        os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+        temp_path = os.path.join(
+            settings.UPLOAD_DIR,
+            f"{request.user.id}_{uuid.uuid4().hex}{ext}"
+        )
+
+        try:
+            with open(temp_path, 'wb') as f:
+                for chunk in file.chunks():
+                    f.write(chunk)
+
+            try:
+                parsed = _parse_audio_to_items(temp_path)
+            except LLMServiceError as e:
+                logger.error("LLM service failure in voice preview: %s", e)
+                return Response(
+                    {"detail": str(e)},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE
+                )
+            except ValueError as e:
+                return Response(
+                    {"detail": str(e)},
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY
+                )
+            except Exception:
+                logger.exception("Unexpected error in voice preview")
+                return Response(
+                    {"detail": "Failed to process audio"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            return Response({
+                "items": parsed["items"],
+                "original_text": parsed["original_text"],
+                "transcription_text": parsed["transcription_text"]
+            }, status=status.HTTP_200_OK)
+
+        except Exception:
+            logger.exception("Error in voice preview upload")
+            return Response(
+                {"detail": "Failed to process audio"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        finally:
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
+
+
+class CreateMealTextPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [LLMEndpointUserThrottle, LLMEndpointIPThrottle]
+
+    def post(self, request):
+        serializer = MealTextInputSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {"detail": "Please enter a description of what you ate (max 2000 characters)."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        text = serializer.validated_data['text']
+
+        try:
+            parsed = _parse_text_to_items(text)
+        except LLMServiceError as e:
+            logger.error("LLM service failure in text preview: %s", e)
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        except ValueError as e:
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+        except Exception:
+            logger.exception("Unexpected error in text preview")
+            return Response(
+                {"detail": "Failed to process text"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return Response({
+            "items": parsed["items"],
+            "original_text": parsed["original_text"],
+            "transcription_text": parsed["transcription_text"]
+        }, status=status.HTTP_200_OK)
+
+
+class CreateMealImagePreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [LLMEndpointUserThrottle, LLMEndpointIPThrottle]
+
+    def post(self, request):
+        if 'file' not in request.FILES:
+            return Response(
+                {"detail": "No image file provided"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        file = request.FILES['file']
+        ext = os.path.splitext(file.name or "")[1].lower()
+
+        if ext not in ALLOWED_IMAGE_EXTENSIONS:
+            return Response(
+                {"detail": f"Unsupported image format '{ext}'. Allowed: jpg, jpeg, png, webp"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        max_bytes = settings.MAX_IMAGE_SIZE_MB * 1024 * 1024
+        if file.size > max_bytes:
+            return Response(
+                {"detail": f"Image exceeds {settings.MAX_IMAGE_SIZE_MB}MB limit"},
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+            )
+
+        sniffed_ext = sniff_image_extension(file)
+        if sniffed_ext is None:
+            return Response(
+                {"detail": "File does not appear to be a valid image"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
+        temp_path = os.path.join(
+            settings.UPLOAD_DIR,
+            f"{request.user.id}_{uuid.uuid4().hex}{sniffed_ext}"
+        )
+
+        try:
+            with open(temp_path, 'wb') as f:
+                for chunk in file.chunks():
+                    f.write(chunk)
+
+            try:
+                parsed = _parse_image_to_items(temp_path)
+            except LLMServiceError as e:
+                logger.error("LLM service failure in image preview: %s", e)
+                return Response(
+                    {"detail": str(e)},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE
+                )
+            except ValueError as e:
+                return Response(
+                    {"detail": str(e)},
+                    status=status.HTTP_422_UNPROCESSABLE_ENTITY
+                )
+            except Exception:
+                logger.exception("Unexpected error in image preview")
+                return Response(
+                    {"detail": "Failed to process image"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            return Response({
+                "items": parsed["items"],
+                "original_text": parsed["original_text"],
+                "transcription_text": parsed["transcription_text"]
+            }, status=status.HTTP_200_OK)
+
+        except Exception:
+            logger.exception("Error in image preview upload")
+            return Response(
+                {"detail": "Failed to process image"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+        finally:
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
+
+
+class ConfirmMealView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [LLMEndpointUserThrottle, LLMEndpointIPThrottle]
+
+    def post(self, request):
+        serializer = ConfirmMealSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response({"detail": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        corrected_items, warnings = resolve_confirmed_items(data["meal_items"])
+        for w in warnings:
+            logger.warning("macro validation on confirm: %s", w)
+
+        if not corrected_items:
+            return Response(
+                {"detail": "No valid meal items to save."},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY
+            )
+
+        meal = _persist_meal(
+            request.user,
+            corrected_items,
+            original_text=data.get("original_text") or "",
+            transcription_text=data.get("transcription_text"),
+            input_method=data["input_method"],
+            meal_category=data.get("meal_category")
+        )
+
+        return Response(MealSerializer(meal).data, status=status.HTTP_201_CREATED)
 
 
 class ListMealsView(APIView):

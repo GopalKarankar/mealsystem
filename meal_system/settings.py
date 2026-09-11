@@ -115,6 +115,10 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
+    'DEFAULT_THROTTLE_RATES': {
+        'llm_endpoint_user': '20/hour',
+        'llm_endpoint_ip': '30/hour',
+    },
 }
 
 # File upload settings

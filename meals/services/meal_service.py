@@ -7,7 +7,7 @@ from .whisper_service import transcribe
 from .llm_service import parse_meal, LLMServiceError
 from .nutrition_service import validate_macros
 from .vision_service import scan_image
-from .food_lookup_service import resolve_item_macros
+from .food_lookup_service import resolve_item_macros, needs_fresh_lookup, rescale_item_macros
 from ..models import Meal, MealItem
 
 logger = logging.getLogger(__name__)
@@ -126,9 +126,9 @@ def get_user_meals(user, date: str | None = None, limit: int | None = None, cate
     return list(query)
 
 
-def _assemble_meal(user, raw_items: list, *, original_text: str, transcription_text: str | None,
-                    input_method: str, empty_items_message: str, meal_category: str | None = None) -> Meal:
-    """Shared logic for assembling a meal from parsed items."""
+def _resolve_and_validate_items(raw_items: list[dict]) -> tuple[list[dict], list[str]]:
+    """Validate each raw LLM item via MealItemCreateSerializer, resolve macros
+    (IFCT/USDA/LLM-estimate), run the ±10% calorie sanity check. No DB write."""
     validated = []
     for raw in raw_items:
         try:
@@ -137,19 +137,17 @@ def _assemble_meal(user, raw_items: list, *, original_text: str, transcription_t
             if serializer.is_valid():
                 validated.append(serializer.validated_data)
             else:
-                logger.warning("Dropping unparseable item from LLM output: %r, errors: %s", raw, serializer.errors)
+                logger.warning("Dropping unparseable item: %r, errors: %s", raw, serializer.errors)
         except Exception as e:
             logger.warning("Error validating item %r: %s", raw, e)
-
     validated = [resolve_item_macros(v) for v in validated]
     result = validate_macros(validated)
-    for w in result["warnings"]:
-        logger.warning("macro validation: %s", w)
+    return result["corrected_items"], result["warnings"]
 
-    corrected_items = result["corrected_items"]
-    if not corrected_items:
-        raise ValueError(empty_items_message)
 
+def _persist_meal(user, corrected_items: list[dict], *, original_text, transcription_text,
+                   input_method: str, meal_category: str | None = None) -> Meal:
+    """Create Meal + MealItem rows from already-resolved items."""
     confidence_score = sum(i.get("confidence", 0.85) for i in corrected_items) / len(corrected_items)
     resolved_category = meal_category or derive_meal_category_from_time(timezone.now())
 
@@ -183,58 +181,87 @@ def _assemble_meal(user, raw_items: list, *, original_text: str, transcription_t
     return meal
 
 
-def create_meal_from_audio(user, audio_path: str, category: str | None = None) -> Meal:
-    """Create a meal from an audio file."""
+def _parse_audio_to_items(audio_path: str) -> dict:
+    """Transcribe + parse + resolve. No DB write. Deletes audio_path when done."""
     try:
         transcript = transcribe(audio_path)
         raw_items = parse_meal(transcript)
-        return _assemble_meal(
-            user, raw_items,
-            original_text=transcript,
-            transcription_text=transcript,
-            input_method="voice",
-            empty_items_message="No food items could be identified in the audio. Please try again with a clearer description of what you ate.",
-            meal_category=category,
-        )
+        corrected_items, warnings = _resolve_and_validate_items(raw_items)
+        for w in warnings:
+            logger.warning("macro validation: %s", w)
+        if not corrected_items:
+            raise ValueError("No food items could be identified in the audio. Please try again with a clearer description of what you ate.")
+        return {"items": corrected_items, "original_text": transcript, "transcription_text": transcript}
     finally:
         if os.path.exists(audio_path):
             os.remove(audio_path)
 
 
-def create_meal_from_text(user, text: str, category: str | None = None) -> Meal:
-    """Create a meal from typed text."""
+def _parse_text_to_items(text: str) -> dict:
+    """Parse text meal description. No DB write."""
     raw_items = parse_meal(text)
-    return _assemble_meal(
-        user, raw_items,
-        original_text=text,
-        transcription_text=None,
-        input_method="text",
-        empty_items_message="No food items could be identified in the text. Please describe what you ate more specifically.",
-        meal_category=category,
-    )
+    corrected_items, warnings = _resolve_and_validate_items(raw_items)
+    for w in warnings:
+        logger.warning("macro validation: %s", w)
+    if not corrected_items:
+        raise ValueError("No food items could be identified in the text. Please describe what you ate more specifically.")
+    return {"items": corrected_items, "original_text": text, "transcription_text": None}
 
 
-def create_meal_from_image(user, image_path: str, category: str | None = None) -> Meal:
-    """Create a meal from an uploaded photo via vision-LLM."""
+def _parse_image_to_items(image_path: str) -> dict:
+    """Describe image via vision-LLM, parse, and resolve. No DB write. Deletes image_path when done."""
     try:
         description = scan_image(image_path)
         raw_items = parse_meal(description)
-        return _assemble_meal(
-            user, raw_items,
-            original_text=description,
-            transcription_text=description,
-            input_method="image",
-            empty_items_message="No food items could be identified in the photo. Please try a clearer photo of the food, label, or menu.",
-            meal_category=category,
-        )
+        corrected_items, warnings = _resolve_and_validate_items(raw_items)
+        for w in warnings:
+            logger.warning("macro validation: %s", w)
+        if not corrected_items:
+            raise ValueError("No food items could be identified in the photo. Please try a clearer photo of the food, label, or menu.")
+        return {"items": corrected_items, "original_text": description, "transcription_text": description}
     finally:
         if os.path.exists(image_path):
             os.remove(image_path)
 
 
+def resolve_confirmed_items(items: list[dict]) -> tuple[list[dict], list[str]]:
+    """Used by ConfirmMealView: re-resolve macros fresh for every item (never trusts
+    client-sent macro fields), then run the calorie sanity check."""
+    resolved = [resolve_item_macros(dict(item)) for item in items]
+    result = validate_macros(resolved)
+    return result["corrected_items"], result["warnings"]
+
+
+def create_meal_from_audio(user, audio_path: str, category: str | None = None) -> Meal:
+    """Create a meal from an audio file."""
+    parsed = _parse_audio_to_items(audio_path)
+    return _persist_meal(user, parsed["items"], original_text=parsed["original_text"],
+                          transcription_text=parsed["transcription_text"], input_method="voice",
+                          meal_category=category)
+
+
+def create_meal_from_text(user, text: str, category: str | None = None) -> Meal:
+    """Create a meal from typed text."""
+    parsed = _parse_text_to_items(text)
+    return _persist_meal(user, parsed["items"], original_text=parsed["original_text"],
+                          transcription_text=parsed["transcription_text"], input_method="text",
+                          meal_category=category)
+
+
+def create_meal_from_image(user, image_path: str, category: str | None = None) -> Meal:
+    """Create a meal from an uploaded photo via vision-LLM."""
+    parsed = _parse_image_to_items(image_path)
+    return _persist_meal(user, parsed["items"], original_text=parsed["original_text"],
+                          transcription_text=parsed["transcription_text"], input_method="image",
+                          meal_category=category)
+
+
 def replace_meal_items(meal: Meal, payload_data: dict) -> Meal:
-    """Replace meal items and recalculate confidence score."""
+    """Replace meal items with rescale-or-relookup logic. Name unchanged -> rescale proportionally;
+    name changed significantly -> re-run IFCT/USDA lookup."""
     from ..serializers import MealItemCreateSerializer
+
+    old_items = list(meal.meal_items.all())
 
     validated = []
     for raw in payload_data.get("meal_items", []):
@@ -247,23 +274,32 @@ def replace_meal_items(meal: Meal, payload_data: dict) -> Meal:
         except Exception as e:
             logger.warning("Error validating item in PATCH %r: %s", raw, e)
 
-    # User-authored edits are trusted as-is; no nutrition lookup applied
-    # (lookup only runs on LLM-parsed items from voice/text/image input).
+    processed_items = []
+    for idx, new_item in enumerate(validated):
+        if idx < len(old_items):
+            old_item = old_items[idx]
+            if not needs_fresh_lookup(old_item.item_name, new_item["item_name"]):
+                rescaled = rescale_item_macros(
+                    {"calories": old_item.calories, "protein_g": old_item.protein_g,
+                     "carbs_g": old_item.carbs_g, "fats_g": old_item.fats_g, "fiber_g": old_item.fiber_g},
+                    old_quantity=old_item.quantity, old_unit=old_item.unit,
+                    new_quantity=new_item["quantity"], new_unit=new_item.get("unit", "serving"),
+                )
+                if rescaled is not None:
+                    processed_items.append({**new_item, **rescaled, "source": old_item.source,
+                                             "confidence": old_item.confidence})
+                    continue
+        processed_items.append(resolve_item_macros(new_item))
 
-    result = validate_macros(validated)
+    result = validate_macros(processed_items)
     for w in result["warnings"]:
         logger.warning("macro validation in PATCH: %s", w)
-
     corrected_items = result["corrected_items"]
     if not corrected_items:
         raise ValueError("Cannot update meal with zero items; delete it instead.")
 
-    confidence_score = sum(i.get("confidence", 0.85) for i in corrected_items) / len(corrected_items)
-
-    # Delete old items
     meal.meal_items.all().delete()
 
-    # Create new items
     for item_data in corrected_items:
         MealItem.objects.create(
             meal=meal,
@@ -277,17 +313,16 @@ def replace_meal_items(meal: Meal, payload_data: dict) -> Meal:
             fats_g=item_data["fats_g"],
             fiber_g=item_data.get("fiber_g", 0),
             confidence=item_data.get("confidence", 0.85),
-            source="llm_estimate",
+            source=item_data.get("source") or "llm_estimate",
             llm_generated=True,
         )
 
-    # Update meal metadata
     if payload_data.get("original_text"):
         meal.original_text = payload_data["original_text"]
     if payload_data.get("meal_category"):
         meal.meal_category = payload_data["meal_category"]
 
-    meal.confidence_score = confidence_score
+    meal.confidence_score = sum(i.get("confidence", 0.85) for i in corrected_items) / len(corrected_items)
     meal.save()
 
     return meal

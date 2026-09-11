@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Meal, MealItem
+from .services.food_lookup_service import ALLOWED_UNITS
 
 
 class MealItemSerializer(serializers.ModelSerializer):
@@ -20,7 +21,7 @@ class MealItemSerializer(serializers.ModelSerializer):
 class MealItemCreateSerializer(serializers.Serializer):
     item_name = serializers.CharField(min_length=1, max_length=255)
     quantity = serializers.FloatField(min_value=0.01, max_value=10000)
-    unit = serializers.CharField(max_length=50, default='serving')
+    unit = serializers.ChoiceField(choices=list(ALLOWED_UNITS.keys()), default='serving')
     serving_size_grams = serializers.FloatField(required=False, allow_null=True, min_value=0)
     calories = serializers.FloatField(min_value=0)
     protein_g = serializers.FloatField(min_value=0)
@@ -76,6 +77,14 @@ class MealUpdateSerializer(serializers.Serializer):
     original_text = serializers.CharField(required=False, allow_null=True)
     meal_items = MealItemCreateSerializer(many=True, min_length=1)
     meal_category = serializers.ChoiceField(choices=Meal.MEAL_CATEGORY_CHOICES, required=False)
+
+
+class ConfirmMealSerializer(serializers.Serializer):
+    input_method = serializers.ChoiceField(choices=Meal.INPUT_METHOD_CHOICES)
+    original_text = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    transcription_text = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    meal_category = serializers.ChoiceField(choices=Meal.MEAL_CATEGORY_CHOICES, required=False)
+    meal_items = MealItemCreateSerializer(many=True, min_length=1)
 
 
 class DashboardSerializer(serializers.Serializer):
