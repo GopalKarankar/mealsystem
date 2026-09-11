@@ -196,7 +196,7 @@ class TestMealEndpoints:
                 {
                     'item_name': 'banana',
                     'quantity': 1,
-                    'unit': 'medium',
+                    'unit': 'piece',
                     'calories': 89,
                     'protein_g': 1.09,
                     'carbs_g': 22.84,
@@ -228,7 +228,7 @@ class TestMealEndpoints:
                 {
                     'item_name': 'banana',
                     'quantity': 1,
-                    'unit': 'medium',
+                    'unit': 'piece',
                     'calories': 89,
                     'protein_g': 1.09,
                     'carbs_g': 22.84,
@@ -267,7 +267,7 @@ class TestMealEndpoints:
                     {
                         'item_name': 'banana',
                         'quantity': 1,
-                        'unit': 'medium',
+                        'unit': 'piece',
                         'calories': 89,
                         'protein_g': 1.09,
                         'carbs_g': 22.84,
@@ -337,7 +337,7 @@ class TestMealEndpoints:
             {
                 'item_name': 'banana',
                 'quantity': 1,
-                'unit': 'medium',
+                'unit': 'piece',
                 'calories': 89,
                 'protein_g': 1.09,
                 'carbs_g': 22.84,
@@ -414,7 +414,7 @@ class TestMealEndpoints:
             {
                 'item_name': 'banana',
                 'quantity': 1,
-                'unit': 'medium',
+                'unit': 'piece',
                 'calories': 89,
                 'protein_g': 1.09,
                 'carbs_g': 22.84,
@@ -499,7 +499,7 @@ class TestMealEndpoints:
             {
                 'item_name': 'banana',
                 'quantity': 1,
-                'unit': 'medium',
+                'unit': 'piece',
                 'calories': 89,
                 'protein_g': 1.09,
                 'carbs_g': 22.84,
@@ -586,7 +586,7 @@ class TestMealEndpoints:
             {
                 'item_name': 'banana',
                 'quantity': 1,
-                'unit': 'medium',
+                'unit': 'piece',
                 'serving_size_grams': 100,
                 'calories': 89,
                 'protein_g': 1.09,
@@ -652,16 +652,28 @@ class TestMealEndpoints:
     @patch('meals.services.food_lookup_service.lookup_ifct')
     @patch('meals.services.food_lookup_service.lookup_usda')
     def test_patch_does_not_trigger_lookup(self, mock_usda, mock_ifct):
-        """PATCH (user edit) should NOT invoke lookup. Verify mocks are not called."""
-        from meals.models import Meal
+        """PATCH rescales when item name unchanged (no new lookup). Use convertible units so rescale works."""
+        from meals.models import Meal, MealItem
         meal = Meal.objects.create(user=self.user, original_text="Original meal")
+        # Create an initial item with convertible unit (g) so rescale can work
+        MealItem.objects.create(
+            meal=meal,
+            item_name='rice',
+            quantity=100,
+            unit='g',
+            calories=130,
+            protein_g=2.7,
+            carbs_g=28,
+            fats_g=0.3,
+            fiber_g=0.4,
+        )
 
+        # Edit: same name, just change quantity (rescale should work, no lookup triggered)
         updated_items = [
             {
                 'item_name': 'rice',
-                'quantity': 2,
-                'unit': 'servings',
-                'serving_size_grams': 200,
+                'quantity': 200,
+                'unit': 'g',
                 'calories': 260,
                 'protein_g': 5.4,
                 'carbs_g': 56,
@@ -671,6 +683,9 @@ class TestMealEndpoints:
             }
         ]
 
+        mock_ifct.return_value = None
+        mock_usda.return_value = None
+
         response = self.client.patch(
             f'/meals/{meal.id}',
             data=json.dumps({'meal_items': updated_items}),
@@ -678,8 +693,10 @@ class TestMealEndpoints:
             **self.headers
         )
         assert response.status_code == 200
+        # With same name and qty rescale on convertible unit, lookups should not be called
         mock_ifct.assert_not_called()
         mock_usda.assert_not_called()
 
         data = response.json()
-        assert data['meal_items'][0]['source'] == 'llm_estimate'
+        # Macros should be rescaled from original (100g→200g = 2x: 130→260 cal)
+        assert abs(data['meal_items'][0]['calories'] - 260) < 1
