@@ -108,7 +108,7 @@ class Dashboard {
   }
 
   editMeal(mealId) {
-    const meal = this.meals.find(m => m.meal_id === parseInt(mealId));
+    const meal = this.meals.find(m => m.meal_id === mealId);
     if (!meal) return;
     this.openMealEditorModal(meal.meal_items, {mode: 'patch', mealId});
   }
