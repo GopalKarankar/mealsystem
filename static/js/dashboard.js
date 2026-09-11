@@ -12,6 +12,9 @@ class Dashboard {
       confidence_distribution: { high: 0, medium: 0, low: 0 },
     };
     this.selectedDate = formatISO(new Date());
+    this.selectedCategory = null;
+    this.categoryCounts = {};
+    this.latestWeightKg = null;
     this.macroChart = new MacroChart('macro-chart-canvas');
     this.isLoading = false;
   }
@@ -21,7 +24,8 @@ class Dashboard {
 
     this.isLoading = true;
     try {
-      const data = await apiGet(`/meals/dashboard?date=${this.selectedDate}`);
+      const categoryParam = this.selectedCategory ? `&category=${this.selectedCategory}` : '';
+      const data = await apiGet(`/meals/dashboard?date=${this.selectedDate}${categoryParam}`);
       this.meals = data.meals || [];
       this.dailyTotals = data.daily_totals || {
         calories: 0,
@@ -31,12 +35,23 @@ class Dashboard {
         fiber_g: 0,
         confidence_distribution: { high: 0, medium: 0, low: 0 },
       };
+      this.categoryCounts = data.category_counts || {};
       this.render();
     } catch (error) {
       console.error('Error fetching dashboard:', error);
       this.showError('Failed to load dashboard');
     } finally {
       this.isLoading = false;
+    }
+  }
+
+  async fetchLatestWeight() {
+    try {
+      const data = await apiGet('/health/weight?limit=1');
+      this.latestWeightKg = data.entries && data.entries.length ? data.entries[0].weight_kg : null;
+    } catch (err) {
+      console.error('Error fetching latest weight:', err);
+      this.latestWeightKg = null;
     }
   }
 
@@ -115,6 +130,7 @@ class Dashboard {
     this.renderSummary();
     this.renderMealList();
     this.renderMacroChart();
+    this.renderCategoryPills();
   }
 
   renderSummary() {
@@ -141,6 +157,47 @@ class Dashboard {
         <p class="text-xs text-body mt-1">${card.unit}</p>
       </div>
     `).join('');
+
+    const heroCalories = document.getElementById('hero-calories');
+    if (heroCalories) heroCalories.textContent = formatNumber(calories);
+    const heroWeight = document.getElementById('hero-weight');
+    if (heroWeight && this.latestWeightKg != null) heroWeight.textContent = formatNumber(this.latestWeightKg, 1);
+  }
+
+  renderCategoryPills() {
+    const container = document.getElementById('category-pills');
+    if (!container) return;
+
+    const pills = [
+      { key: null, label: 'All', count: Object.values(this.categoryCounts).reduce((a, b) => a + b, 0) },
+      { key: 'early_morning', label: 'Early Morning', count: this.categoryCounts.early_morning || 0 },
+      { key: 'breakfast', label: 'Breakfast', count: this.categoryCounts.breakfast || 0 },
+      { key: 'mid_morning', label: 'Mid-Morning', count: this.categoryCounts.mid_morning || 0 },
+      { key: 'lunch', label: 'Lunch', count: this.categoryCounts.lunch || 0 },
+      { key: 'afternoon_snack', label: 'Afternoon Snack', count: this.categoryCounts.afternoon_snack || 0 },
+      { key: 'dinner', label: 'Dinner', count: this.categoryCounts.dinner || 0 },
+      { key: 'bedtime', label: 'Bedtime', count: this.categoryCounts.bedtime || 0 },
+    ];
+
+    container.innerHTML = pills.map(pill => `
+      <button
+        data-category="${pill.key || ''}"
+        class="px-3 py-1 text-xs font-medium rounded-full ${
+          this.selectedCategory === pill.key
+            ? 'bg-brand-orange text-white'
+            : 'bg-gray-200 text-body hover:bg-gray-300'
+        } cursor-pointer transition-colors"
+      >
+        ${pill.label} (${pill.count})
+      </button>
+    `).join('');
+
+    container.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.selectedCategory = btn.dataset.category === '' ? null : btn.dataset.category;
+        this.fetchDashboard();
+      });
+    });
   }
 
   renderMealList() {
@@ -223,6 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (isTokenValid()) {
     dashboard = new Dashboard();
     dashboard.fetchDashboard();
+    dashboard.fetchLatestWeight();
 
     // Set up record button
     const recordBtn = document.getElementById('record-btn');

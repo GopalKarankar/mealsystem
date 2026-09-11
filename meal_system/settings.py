@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'whitenoise.runserver_nostatic',
     'accounts',
     'meals',
+    'health',
 ]
 
 MIDDLEWARE = [

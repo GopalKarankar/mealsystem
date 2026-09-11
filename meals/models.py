@@ -4,6 +4,15 @@ from django.conf import settings
 
 class Meal(models.Model):
     INPUT_METHOD_CHOICES = [('voice', 'Voice'), ('text', 'Text'), ('image', 'Image')]
+    MEAL_CATEGORY_CHOICES = [
+        ('early_morning', 'Early Morning'),
+        ('breakfast', 'Breakfast'),
+        ('mid_morning', 'Mid-Morning'),
+        ('lunch', 'Lunch'),
+        ('afternoon_snack', 'Afternoon Snack'),
+        ('dinner', 'Dinner'),
+        ('bedtime', 'Bedtime'),
+    ]
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='meals')
     original_text = models.TextField()
@@ -13,6 +22,7 @@ class Meal(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     confidence_score = models.FloatField(default=0.85)
     input_method = models.CharField(max_length=10, choices=INPUT_METHOD_CHOICES, default='voice')
+    meal_category = models.CharField(max_length=20, choices=MEAL_CATEGORY_CHOICES, default='lunch')
 
     class Meta:
         ordering = ['-created_at']

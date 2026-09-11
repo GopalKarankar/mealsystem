@@ -3,6 +3,7 @@ from datetime import timedelta
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import authenticate
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
@@ -183,3 +184,16 @@ class GoogleLoginView(APIView):
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            'user_id': str(user.id),
+            'username': user.username,
+            'email': user.email,
+            'first_name': user.first_name,
+        }, status=status.HTTP_200_OK)

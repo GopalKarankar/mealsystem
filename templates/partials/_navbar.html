@@ -1,10 +1,41 @@
 <nav class="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">
-  <div class="max-w-6xl mx-auto px-4 py-4 flex items-center {% if show_logout %}justify-between{% else %}justify-center sm:justify-start{% endif %}">
+  <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+    <!-- Logo -->
     <a href="/" class="flex items-center">
       <span class="text-3xl font-extrabold tracking-tight text-brand-orange">Track</span><span class="text-3xl font-extrabold tracking-tight text-heading">Intake</span>
     </a>
+
+    <!-- Nav Links (placeholder) -->
+    <nav class="hidden md:flex gap-8">
+      <a href="#" class="text-sm text-body hover:text-heading">Home</a>
+      <a href="#" class="text-sm text-body hover:text-heading">Tools</a>
+      <a href="#" class="text-sm text-body hover:text-heading">Health</a>
+      <a href="#" class="text-sm text-body hover:text-heading">Diet</a>
+      <a href="#" class="text-sm text-body hover:text-heading">Progress</a>
+      <a href="#" class="text-sm text-body hover:text-heading">Blogs</a>
+    </nav>
+
+    <!-- User + Logout -->
     {% if show_logout %}
-    <button onclick="logout()" class="text-sm font-medium text-body hover:text-heading focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 rounded">Logout</button>
+    <div class="flex items-center gap-3">
+      <div id="user-avatar" class="w-8 h-8 bg-brand-orange rounded-full flex items-center justify-center text-white text-xs font-bold">?</div>
+      <span id="user-name" class="text-sm text-body hidden sm:inline">User</span>
+      <button onclick="logout()" class="text-sm font-medium text-body hover:text-heading">Logout</button>
+    </div>
     {% endif %}
   </div>
 </nav>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const avatarEl = document.getElementById('user-avatar');
+  if (!avatarEl) return;
+  apiGet('/auth/me')
+    .then(data => {
+      avatarEl.textContent = (data.email || data.username || '?')[0].toUpperCase();
+      const nameEl = document.getElementById('user-name');
+      if (nameEl) nameEl.textContent = data.username || data.email || 'User';
+    })
+    .catch(err => console.error('Failed to fetch user info:', err));
+});
+</script>

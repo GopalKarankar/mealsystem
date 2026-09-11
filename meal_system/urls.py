@@ -6,6 +6,7 @@ urlpatterns = [
     # API routes
     path('auth/', include('accounts.urls')),
     path('meals/', include('meals.urls')),
+    path('health/', include('health.urls')),
 
     # Template routes
     path('login', TemplateView.as_view(template_name='login.html'), name='login'),

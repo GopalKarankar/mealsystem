@@ -37,6 +37,25 @@ def sniff_image_extension(file_obj) -> str | None:
     return None
 
 
+def derive_meal_category_from_time(dt) -> str:
+    """Auto-derive a meal category from a datetime's local hour."""
+    hour = timezone.localtime(dt).hour
+    if 5 <= hour < 7:
+        return 'early_morning'
+    elif 7 <= hour < 10:
+        return 'breakfast'
+    elif 10 <= hour < 12:
+        return 'mid_morning'
+    elif 12 <= hour < 14:
+        return 'lunch'
+    elif 14 <= hour < 17:
+        return 'afternoon_snack'
+    elif 17 <= hour < 21:
+        return 'dinner'
+    else:
+        return 'bedtime'
+
+
 def get_confidence_badge(score: float) -> str:
     """Return a confidence badge color based on the score."""
     if score > 0.90:
@@ -83,8 +102,8 @@ def calculate_confidence_distribution(meals: list) -> dict:
     }
 
 
-def get_user_meals(user, date: str | None = None, limit: int | None = None):
-    """Get user's meals, optionally filtered by date."""
+def get_user_meals(user, date: str | None = None, limit: int | None = None, category: str | None = None):
+    """Get user's meals, optionally filtered by date and category."""
     query = Meal.objects.filter(user=user)
 
     if date:
@@ -96,6 +115,9 @@ def get_user_meals(user, date: str | None = None, limit: int | None = None):
         except ValueError:
             raise ValueError("date must be in YYYY-MM-DD format")
 
+    if category:
+        query = query.filter(meal_category=category)
+
     query = query.order_by("-created_at")
     if limit is not None:
         query = query[:limit]
@@ -104,7 +126,7 @@ def get_user_meals(user, date: str | None = None, limit: int | None = None):
 
 
 def _assemble_meal(user, raw_items: list, *, original_text: str, transcription_text: str | None,
-                    input_method: str, empty_items_message: str) -> Meal:
+                    input_method: str, empty_items_message: str, meal_category: str | None = None) -> Meal:
     """Shared logic for assembling a meal from parsed items."""
     validated = []
     for raw in raw_items:
@@ -127,6 +149,7 @@ def _assemble_meal(user, raw_items: list, *, original_text: str, transcription_t
         raise ValueError(empty_items_message)
 
     confidence_score = sum(i.get("confidence", 0.85) for i in corrected_items) / len(corrected_items)
+    resolved_category = meal_category or derive_meal_category_from_time(timezone.now())
 
     meal = Meal.objects.create(
         user=user,
@@ -135,6 +158,7 @@ def _assemble_meal(user, raw_items: list, *, original_text: str, transcription_t
         parsed_at=timezone.now(),
         confidence_score=confidence_score,
         input_method=input_method,
+        meal_category=resolved_category,
     )
 
     for item_data in corrected_items:
@@ -157,7 +181,7 @@ def _assemble_meal(user, raw_items: list, *, original_text: str, transcription_t
     return meal
 
 
-def create_meal_from_audio(user, audio_path: str) -> Meal:
+def create_meal_from_audio(user, audio_path: str, category: str | None = None) -> Meal:
     """Create a meal from an audio file."""
     try:
         transcript = transcribe(audio_path)
@@ -168,13 +192,14 @@ def create_meal_from_audio(user, audio_path: str) -> Meal:
             transcription_text=transcript,
             input_method="voice",
             empty_items_message="No food items could be identified in the audio. Please try again with a clearer description of what you ate.",
+            meal_category=category,
         )
     finally:
         if os.path.exists(audio_path):
             os.remove(audio_path)
 
 
-def create_meal_from_text(user, text: str) -> Meal:
+def create_meal_from_text(user, text: str, category: str | None = None) -> Meal:
     """Create a meal from typed text."""
     raw_items = parse_meal(text)
     return _assemble_meal(
@@ -183,10 +208,11 @@ def create_meal_from_text(user, text: str) -> Meal:
         transcription_text=None,
         input_method="text",
         empty_items_message="No food items could be identified in the text. Please describe what you ate more specifically.",
+        meal_category=category,
     )
 
 
-def create_meal_from_image(user, image_path: str) -> Meal:
+def create_meal_from_image(user, image_path: str, category: str | None = None) -> Meal:
     """Create a meal from an uploaded photo via vision-LLM."""
     try:
         description = scan_image(image_path)
@@ -197,6 +223,7 @@ def create_meal_from_image(user, image_path: str) -> Meal:
             transcription_text=description,
             input_method="image",
             empty_items_message="No food items could be identified in the photo. Please try a clearer photo of the food, label, or menu.",
+            meal_category=category,
         )
     finally:
         if os.path.exists(image_path):
@@ -252,6 +279,8 @@ def replace_meal_items(meal: Meal, payload_data: dict) -> Meal:
     # Update meal metadata
     if payload_data.get("original_text"):
         meal.original_text = payload_data["original_text"]
+    if payload_data.get("meal_category"):
+        meal.meal_category = payload_data["meal_category"]
 
     meal.confidence_score = confidence_score
     meal.save()

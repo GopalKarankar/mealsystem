@@ -56,6 +56,14 @@ class CreateMealVoiceView(APIView):
                 status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
             )
 
+        # Validate category if provided
+        category = request.query_params.get('category')
+        if category and category not in dict(Meal.MEAL_CATEGORY_CHOICES):
+            return Response(
+                {"detail": "Invalid meal_category"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         # Create temporary file
         os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
         temp_path = os.path.join(
@@ -71,7 +79,7 @@ class CreateMealVoiceView(APIView):
 
             # Process audio through meal service
             try:
-                meal = create_meal_from_audio(request.user, temp_path)
+                meal = create_meal_from_audio(request.user, temp_path, category=category)
             except LLMServiceError as e:
                 logger.error("LLM service failure: %s", e)
                 return Response(
@@ -119,9 +127,10 @@ class CreateMealTextView(APIView):
             )
 
         text = serializer.validated_data['text']
+        category = serializer.validated_data.get('category')
 
         try:
-            meal = create_meal_from_text(request.user, text)
+            meal = create_meal_from_text(request.user, text, category=category)
         except LLMServiceError as e:
             logger.error("LLM service failure: %s", e)
             return Response(
@@ -176,6 +185,14 @@ class CreateMealImageView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Validate category if provided
+        category = request.query_params.get('category')
+        if category and category not in dict(Meal.MEAL_CATEGORY_CHOICES):
+            return Response(
+                {"detail": "Invalid meal_category"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
         temp_path = os.path.join(
             settings.UPLOAD_DIR,
@@ -188,7 +205,7 @@ class CreateMealImageView(APIView):
                     f.write(chunk)
 
             try:
-                meal = create_meal_from_image(request.user, temp_path)
+                meal = create_meal_from_image(request.user, temp_path, category=category)
             except LLMServiceError as e:
                 logger.error("LLM service failure: %s", e)
                 return Response(
@@ -229,6 +246,7 @@ class ListMealsView(APIView):
     def get(self, request):
         date_str = request.query_params.get('date')
         limit = request.query_params.get('limit', 50)
+        category = request.query_params.get('category')
 
         try:
             limit = int(limit)
@@ -238,7 +256,7 @@ class ListMealsView(APIView):
             limit = 50
 
         try:
-            meals = get_user_meals(request.user, date=date_str, limit=limit)
+            meals = get_user_meals(request.user, date=date_str, limit=limit, category=category)
         except ValueError as e:
             return Response(
                 {"detail": str(e)},
@@ -323,6 +341,7 @@ class DashboardView(APIView):
 
     def get(self, request):
         date_str = request.query_params.get('date')
+        category_str = request.query_params.get('category')
 
         if not date_str:
             return Response(
@@ -347,17 +366,24 @@ class DashboardView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Get first 7 meals for display
-        recent_meals = day_meals[:7]
+        # Compute category counts from unfiltered meals
+        category_counts = {choice: 0 for choice, _ in Meal.MEAL_CATEGORY_CHOICES}
+        for m in day_meals:
+            category_counts[m.meal_category] = category_counts.get(m.meal_category, 0) + 1
 
-        # Calculate totals
-        totals = calculate_daily_totals(day_meals)
-        totals["confidence_distribution"] = calculate_confidence_distribution(day_meals)
+        # Filter by category if requested
+        filtered_meals = [m for m in day_meals if not category_str or m.meal_category == category_str]
+        recent_meals = filtered_meals[:7]
+
+        # Calculate totals from filtered meals
+        totals = calculate_daily_totals(filtered_meals)
+        totals["confidence_distribution"] = calculate_confidence_distribution(filtered_meals)
 
         response_data = {
             "date": date_str,
             "meals": MealSerializer(recent_meals, many=True).data,
             "daily_totals": totals,
+            "category_counts": category_counts,
         }
 
         return Response(response_data, status=status.HTTP_200_OK)

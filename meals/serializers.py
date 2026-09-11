@@ -41,7 +41,8 @@ class MealSerializer(serializers.ModelSerializer):
         model = Meal
         fields = [
             'meal_id', 'original_text', 'transcription_text', 'confidence_score',
-            'confidence_badge', 'parsed_at', 'meal_items', 'totals', 'created_at', 'input_method'
+            'confidence_badge', 'parsed_at', 'meal_items', 'totals', 'created_at', 'input_method',
+            'meal_category'
         ]
 
     def get_meal_id(self, obj):
@@ -68,11 +69,13 @@ class MealSerializer(serializers.ModelSerializer):
 
 class MealTextInputSerializer(serializers.Serializer):
     text = serializers.CharField(min_length=1, max_length=2000, trim_whitespace=True)
+    category = serializers.ChoiceField(choices=Meal.MEAL_CATEGORY_CHOICES, required=False)
 
 
 class MealUpdateSerializer(serializers.Serializer):
     original_text = serializers.CharField(required=False, allow_null=True)
     meal_items = MealItemCreateSerializer(many=True, min_length=1)
+    meal_category = serializers.ChoiceField(choices=Meal.MEAL_CATEGORY_CHOICES, required=False)
 
 
 class DashboardSerializer(serializers.Serializer):

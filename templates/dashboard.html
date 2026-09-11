@@ -8,6 +8,31 @@
 
   <!-- Main Content -->
   <main class="max-w-4xl mx-auto px-4 py-8">
+    <!-- Hero Section -->
+    <div class="bg-white rounded-2xl shadow-card p-8 mb-8">
+      <div class="max-w-2xl">
+        <h1 class="text-3xl font-bold text-heading mb-2">Fuel your journey with <span class="text-brand-orange">smart nutrition</span></h1>
+        <p class="text-body mb-6">Log, learn, and stay ahead of your health goals every day.</p>
+        <div class="grid grid-cols-3 gap-4">
+          <div class="bg-cream rounded-lg p-4 text-center">
+            <p class="text-xs text-body mb-2">🔥 Calories Today</p>
+            <p class="text-2xl font-bold text-brand-orange" id="hero-calories">0</p>
+            <p class="text-xs text-body mt-1">kcal</p>
+          </div>
+          <div class="bg-cream rounded-lg p-4 text-center">
+            <p class="text-xs text-body mb-2">💧 Water Intake</p>
+            <p class="text-2xl font-bold text-brand-orange" id="hero-water">0</p>
+            <p class="text-xs text-body mt-1">glasses</p>
+          </div>
+          <div class="bg-cream rounded-lg p-4 text-center">
+            <p class="text-xs text-body mb-2">⚖️ Current Weight</p>
+            <p class="text-2xl font-bold text-brand-orange" id="hero-weight">-</p>
+            <p class="text-xs text-body mt-1">kg</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Date Selector -->
     <div class="mb-8">
       <label class="block text-sm font-medium text-heading mb-2">Select Date</label>
@@ -33,6 +58,9 @@
         <button type="button" role="tab" id="tab-photo" aria-controls="panel-photo" aria-selected="false" tabindex="-1"
           class="input-tab px-4 py-3 min-h-11 font-medium text-sm border-b-2 border-transparent text-body hover:text-heading focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 rounded-t"
           data-target="photo">📷 Photo</button>
+        <button type="button" role="tab" id="tab-manual" aria-controls="panel-manual" aria-selected="false" tabindex="-1"
+          class="input-tab px-4 py-3 min-h-11 font-medium text-sm border-b-2 border-transparent text-body hover:text-heading focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 rounded-t"
+          data-target="manual">✍️ Manual</button>
       </div>
 
       <!-- Record Panel -->
@@ -128,6 +156,41 @@
           </button>
         </div>
       </div>
+
+      <!-- Manual Panel -->
+      <div id="panel-manual" role="tabpanel" aria-labelledby="tab-manual" class="input-panel hidden">
+        <div class="space-y-4">
+          <div>
+            <label for="manual-food-name" class="block text-sm font-medium text-heading mb-2">Food Name</label>
+            <input id="manual-food-name" type="text" placeholder="e.g. Chicken breast" maxlength="255"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg text-heading focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2" />
+          </div>
+          <div>
+            <label for="manual-remark" class="block text-sm font-medium text-heading mb-2">Remark (optional)</label>
+            <input id="manual-remark" type="text" placeholder="e.g. grilled with olive oil" maxlength="255"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg text-heading focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2" />
+          </div>
+          <div>
+            <label for="manual-category" class="block text-sm font-medium text-heading mb-2">Meal Category</label>
+            <select id="manual-category" class="w-full px-4 py-3 border border-gray-300 rounded-lg text-heading focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2">
+              <option value="early_morning">Early Morning</option>
+              <option value="breakfast">Breakfast</option>
+              <option value="mid_morning">Mid-Morning</option>
+              <option value="lunch" selected>Lunch</option>
+              <option value="afternoon_snack">Afternoon Snack</option>
+              <option value="dinner">Dinner</option>
+              <option value="bedtime">Bedtime</option>
+            </select>
+          </div>
+          <div class="flex items-center justify-between">
+            <div id="manual-status" class="text-sm text-body"></div>
+            <button id="manual-submit-btn" type="button"
+              class="px-6 py-3 min-h-11 bg-brand-orange text-white font-medium rounded-full shadow-card hover:shadow-hover hover:brightness-95 transition-all focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2">
+              Log Meal
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Daily Summary -->
@@ -149,11 +212,188 @@
     <!-- Meals List -->
     <div class="mb-8">
       <h2 class="text-lg font-semibold text-heading mb-4">Meals</h2>
+      <div id="category-pills" class="flex gap-2 flex-wrap mb-4">
+        <!-- Will be populated by dashboard.js -->
+      </div>
       <div id="meals-list">
         <!-- Will be populated by dashboard.js -->
       </div>
     </div>
+
+    <!-- Water Intake Tracker -->
+    <div class="mb-8">
+      <h2 class="text-lg font-semibold text-heading mb-4">Water Intake Tracker 💧</h2>
+      <div class="bg-white rounded-2xl shadow-card p-6 text-center">
+        <input type="date" id="water-date-picker" class="border-none text-sm text-body font-medium focus:outline-none mb-6" />
+        <div id="water-glasses-visual" class="flex justify-center gap-2 mb-4 flex-wrap"></div>
+        <p id="water-status" class="text-sm text-body mb-4">0 of 10 glasses completed</p>
+        <button id="water-add-btn" type="button" class="px-4 py-2 bg-brand-orange text-white font-medium rounded-full text-sm">⬆️ Add a Glass</button>
+      </div>
+    </div>
+
+    <!-- Health Tools -->
+    <div class="mb-8">
+      <h2 class="text-lg font-semibold text-heading mb-4">Health Tools</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div class="bg-white rounded-2xl shadow-card p-6 text-center">
+          <div class="text-3xl mb-3">⚖️</div>
+          <h3 class="font-semibold text-heading mb-2">Weight Tracker</h3>
+          <p class="text-xs text-body mb-4">Log your current weight</p>
+          <button class="text-sm text-brand-orange font-medium">Add Weight</button>
+        </div>
+        <div class="bg-white rounded-2xl shadow-card p-6 text-center">
+          <div class="text-3xl mb-3">📏</div>
+          <h3 class="font-semibold text-heading mb-2">BMI Calculator</h3>
+          <p class="text-xs text-body mb-4">Calculate your Body Mass Index</p>
+          <button id="bmi-calculator-btn" class="text-sm text-brand-orange font-medium">Calculate BMI</button>
+        </div>
+        <div class="bg-white rounded-2xl shadow-card p-6 text-center">
+          <div class="text-3xl mb-3">💪</div>
+          <h3 class="font-semibold text-heading mb-2">Body Fat %</h3>
+          <p class="text-xs text-body mb-4">Estimate body fat percentage</p>
+          <button id="bodyfat-calculator-btn" class="text-sm text-brand-orange font-medium">Calculate</button>
+        </div>
+      </div>
+      <!-- BMI Modal -->
+      <div id="bmi-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-modal p-6 max-w-sm w-full">
+          <h3 class="text-lg font-semibold text-heading mb-4">BMI Calculator</h3>
+          <div class="space-y-4">
+            <div>
+              <label for="bmi-height" class="block text-sm text-heading mb-2">Height (cm)</label>
+              <input id="bmi-height" type="number" placeholder="170" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-orange" />
+            </div>
+            <div>
+              <label for="bmi-weight" class="block text-sm text-heading mb-2">Weight (kg)</label>
+              <input id="bmi-weight" type="number" placeholder="70" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-orange" />
+            </div>
+            <p id="bmi-result" class="text-center font-semibold text-brand-orange text-lg"></p>
+            <div class="flex gap-2">
+              <button onclick="document.getElementById('bmi-modal').classList.add('hidden')" class="flex-1 px-4 py-2 text-heading border border-gray-300 rounded-lg font-medium">Close</button>
+              <button id="bmi-calculate-btn" class="flex-1 px-4 py-2 bg-brand-orange text-white rounded-lg font-medium">Calculate</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- Body Fat Modal -->
+      <div id="bodyfat-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-modal p-6 max-w-sm w-full">
+          <h3 class="text-lg font-semibold text-heading mb-4">Body Fat Calculator</h3>
+          <div class="space-y-4">
+            <div>
+              <label for="bodyfat-height" class="block text-sm text-heading mb-2">Height (cm)</label>
+              <input id="bodyfat-height" type="number" placeholder="170" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-orange" />
+            </div>
+            <div>
+              <label for="bodyfat-neck" class="block text-sm text-heading mb-2">Neck (cm)</label>
+              <input id="bodyfat-neck" type="number" placeholder="38" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-orange" />
+            </div>
+            <div>
+              <label for="bodyfat-waist" class="block text-sm text-heading mb-2">Waist (cm)</label>
+              <input id="bodyfat-waist" type="number" placeholder="85" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-orange" />
+            </div>
+            <div>
+              <label for="bodyfat-hip" class="block text-sm text-heading mb-2">Hip (cm, for females)</label>
+              <input id="bodyfat-hip" type="number" placeholder="95" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-orange" />
+            </div>
+            <div>
+              <label for="bodyfat-gender" class="block text-sm text-heading mb-2">Gender</label>
+              <select id="bodyfat-gender" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-orange">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+            <p id="bodyfat-result" class="text-center font-semibold text-brand-orange text-lg"></p>
+            <div class="flex gap-2">
+              <button onclick="document.getElementById('bodyfat-modal').classList.add('hidden')" class="flex-1 px-4 py-2 text-heading border border-gray-300 rounded-lg font-medium">Close</button>
+              <button id="bodyfat-calculate-btn" class="flex-1 px-4 py-2 bg-brand-orange text-white rounded-lg font-medium">Calculate</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Diet Recommendations -->
+    <div class="mb-8">
+      <h2 class="text-lg font-semibold text-heading mb-4">Personalized Diet Recommendations</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div class="bg-white rounded-2xl shadow-card overflow-hidden">
+          <div class="bg-gradient-to-br from-orange-100 to-orange-50 h-32 flex items-center justify-center font-bold text-heading">Breakfast</div>
+          <div class="p-4">
+            <h3 class="font-semibold text-heading mb-1">Quinoa Bowl</h3>
+            <p class="text-xs text-body mb-3">Fresh berries & nuts</p>
+            <div class="flex justify-between text-xs">
+              <span class="text-brand-orange font-medium">320 kcal</span>
+              <span class="text-brand-orange font-medium">25g protein</span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-card overflow-hidden">
+          <div class="bg-gradient-to-br from-orange-200 to-orange-100 h-32 flex items-center justify-center font-bold text-heading">Lunch</div>
+          <div class="p-4">
+            <h3 class="font-semibold text-heading mb-1">Grilled Salmon</h3>
+            <p class="text-xs text-body mb-3">Roasted vegetables</p>
+            <div class="flex justify-between text-xs">
+              <span class="text-brand-orange font-medium">450 kcal</span>
+              <span class="text-brand-orange font-medium">35g protein</span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-card overflow-hidden">
+          <div class="bg-gradient-to-br from-yellow-100 to-yellow-50 h-32 flex items-center justify-center font-bold text-heading">Dinner</div>
+          <div class="p-4">
+            <h3 class="font-semibold text-heading mb-1">Chickpea Stir-fry</h3>
+            <p class="text-xs text-body mb-3">Mixed vegetables</p>
+            <div class="flex justify-between text-xs">
+              <span class="text-brand-orange font-medium">380 kcal</span>
+              <span class="text-brand-orange font-medium">18g protein</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="text-center mt-6">
+        <button id="diet-recommendations-cta" class="px-6 py-3 bg-brand-orange text-white font-medium rounded-full text-sm">View Full Diet Plan →</button>
+      </div>
+    </div>
   </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-gray-200 mt-12">
+    <div class="max-w-6xl mx-auto px-4 py-12">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 mb-8">
+        <div>
+          <div class="text-lg font-bold mb-4"><span class="text-brand-orange">Track</span><span class="text-heading">Intake</span></div>
+          <p class="text-xs text-body mb-4">Your smart companion for everyday healthy eating — log meals, track water, and more.</p>
+          <div class="flex gap-3">
+            <a href="#" class="text-body text-sm hover:text-heading">f</a>
+            <a href="#" class="text-body text-sm hover:text-heading">𝕏</a>
+            <a href="#" class="text-body text-sm hover:text-heading">in</a>
+          </div>
+        </div>
+        <div>
+          <h3 class="font-semibold text-heading mb-4">Quick Links</h3>
+          <ul class="space-y-2 text-xs">
+            <li><a href="#" class="text-body hover:text-heading">Dashboard</a></li>
+            <li><a href="#" class="text-body hover:text-heading">Appointments</a></li>
+            <li><a href="#" class="text-body hover:text-heading">Profile</a></li>
+            <li><a href="#" class="text-body hover:text-heading">Health</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="font-semibold text-heading mb-4">Legal</h3>
+          <ul class="space-y-2 text-xs">
+            <li><a href="#" class="text-body hover:text-heading">Privacy Policy</a></li>
+            <li><a href="#" class="text-body hover:text-heading">Terms & Conditions</a></li>
+            <li><a href="#" class="text-body hover:text-heading">Refund Policy</a></li>
+            <li><a href="#" class="text-body hover:text-heading">Contact</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="text-center border-t border-gray-200 pt-8">
+        <p class="text-xs text-body">© 2026 TrackIntake. All rights reserved. Made with ❤️</p>
+      </div>
+    </div>
+  </footer>
 </div>
 {% endblock %}
 
@@ -163,6 +403,9 @@
 <script src="/static/js/mealInputTabs.js"></script>
 <script src="/static/js/macroChart.js"></script>
 <script src="/static/js/dashboard.js"></script>
+<script src="/static/js/waterTracker.js"></script>
+<script src="/static/js/healthTools.js"></script>
+<script src="/static/js/dietRecommendations.js"></script>
 
 <script>
   // Redirect to login if not authenticated
