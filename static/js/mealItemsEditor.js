@@ -65,8 +65,9 @@ class MealItemsEditor {
   }
 
   renderItemRow(item, idx) {
+    const isLastItem = this.items.length === 1;
     return `
-      <div class="item-row" data-idx="${idx}" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr; gap: 8px; align-items: center; padding: 8px; background-color: #FFFDF9; border-radius: 8px; border: 1px solid #F3F4F6;">
+      <div class="item-row" data-idx="${idx}" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1.5fr 32px; gap: 8px; align-items: center; padding: 8px; background-color: #FFFDF9; border-radius: 8px; border: 1px solid #F3F4F6;">
         <input type="text" class="item-name-input" value="${escapeHtml(item.item_name)}" placeholder="Food name" style="padding: 8px; border: 1px solid #E0E0E0; border-radius: 4px; font-family: inherit; font-size: inherit;" />
         <input type="number" class="item-qty-input" value="${item.quantity}" min="0.01" step="0.1" style="padding: 8px; border: 1px solid #E0E0E0; border-radius: 4px; font-family: inherit; font-size: inherit;" />
         <select class="item-unit-select" style="padding: 8px; border: 1px solid #E0E0E0; border-radius: 4px; font-family: inherit; font-size: inherit;">
@@ -75,8 +76,43 @@ class MealItemsEditor {
         <div style="font-size: 12px; color: #546E7A;">
           ${Math.round(item.calories)} kcal | P: ${item.protein_g.toFixed(1)}g C: ${item.carbs_g.toFixed(1)}g F: ${item.fats_g.toFixed(1)}g
         </div>
+        <button type="button" class="item-delete-btn" data-idx="${idx}" style="background: none; border: none; cursor: ${isLastItem ? 'not-allowed' : 'pointer'}; padding: 4px; font-size: 18px; color: ${isLastItem ? '#CCCCCC' : '#D64444'}; opacity: ${isLastItem ? '0.5' : '1'}; transition: opacity 0.2s;" ${isLastItem ? 'disabled' : ''}>×</button>
       </div>
     `;
+  }
+
+  deleteItemRow(rowIdx) {
+    if (this.items.length === 1) {
+      return false;
+    }
+    const row = document.querySelector(`.item-row[data-idx="${rowIdx}"]`);
+    if (!row) return false;
+
+    row.remove();
+    this.items.splice(rowIdx, 1);
+
+    const remainingRows = document.querySelectorAll(".item-row");
+    remainingRows.forEach((r, newIdx) => {
+      r.dataset.idx = newIdx;
+      const deleteBtn = r.querySelector(".item-delete-btn");
+      if (deleteBtn) {
+        deleteBtn.dataset.idx = newIdx;
+        const isLastItem = this.items.length === 1;
+        if (isLastItem) {
+          deleteBtn.disabled = true;
+          deleteBtn.style.cursor = "not-allowed";
+          deleteBtn.style.color = "#CCCCCC";
+          deleteBtn.style.opacity = "0.5";
+        } else {
+          deleteBtn.disabled = false;
+          deleteBtn.style.cursor = "pointer";
+          deleteBtn.style.color = "#D64444";
+          deleteBtn.style.opacity = "1";
+        }
+      }
+    });
+
+    return true;
   }
 
   getEditedItems() {

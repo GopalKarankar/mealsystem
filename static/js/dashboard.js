@@ -113,6 +113,18 @@ class Dashboard {
     this.openMealEditorModal(meal.meal_items, {mode: 'patch', mealId});
   }
 
+  wireDeleteButtons(modal, editor) {
+    const deleteButtons = modal.querySelectorAll(".item-delete-btn");
+    deleteButtons.forEach(btn => {
+      btn.onclick = (e) => {
+        const rowIdx = parseInt(e.target.dataset.idx);
+        if (editor.deleteItemRow(rowIdx)) {
+          this.wireDeleteButtons(modal, editor);
+        }
+      };
+    });
+  }
+
   openMealEditorModal(items, options) {
     const modal = document.createElement("div");
     modal.style.cssText = "position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;";
@@ -129,6 +141,8 @@ class Dashboard {
     const saveBtn = modal.querySelector("#save-btn");
     const addItemBtn = modal.querySelector("#add-item-btn");
 
+    this.wireDeleteButtons(modal, editor);
+
     cancelBtn.onclick = () => {
       modal.remove();
     };
@@ -138,6 +152,7 @@ class Dashboard {
       editor.items.push(editor.createEmptyItem());
       const itemsList = modal.querySelector("#items-list");
       itemsList.insertAdjacentHTML("beforeend", editor.renderItemRow(editor.items[newIdx], newIdx));
+      this.wireDeleteButtons(modal, editor);
     };
 
     saveBtn.onclick = async () => {
