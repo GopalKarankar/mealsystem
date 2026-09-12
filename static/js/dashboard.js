@@ -62,13 +62,14 @@ class Dashboard {
     this.showSuccess('Meal added successfully');
   }
 
-  async updateMeal(mealId, mealItems) {
+  async updateMeal(mealId, mealItems, mealCategory) {
     if (this.isLoading) return;
 
     this.isLoading = true;
     try {
       const updatedMeal = await apiPatch(`/meals/${mealId}`, {
         meal_items: mealItems,
+        meal_category: mealCategory
       });
 
       const index = this.meals.findIndex(m => m.meal_id === updatedMeal.meal_id);
@@ -110,7 +111,7 @@ class Dashboard {
   editMeal(mealId) {
     const meal = this.meals.find(m => m.meal_id === mealId);
     if (!meal) return;
-    this.openMealEditorModal(meal.meal_items, {mode: 'patch', mealId});
+    this.openMealEditorModal(meal.meal_items, {mode: 'patch', mealId, mealCategory: meal.meal_category});
   }
 
   wireDeleteButtons(modal, editor) {
@@ -131,7 +132,8 @@ class Dashboard {
 
     const editor = new MealItemsEditor(items, {
       showTranscription: options.showTranscription,
-      transcription: options.transcription || ""
+      transcription: options.transcription || "",
+      mealCategory: options.mealCategory
     });
 
     modal.innerHTML = `<div style="background: white; border-radius: 12px; padding: 0; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.15);">${editor.render()}</div>`;
@@ -160,13 +162,13 @@ class Dashboard {
       const editedItems = editor.getEditedItems();
 
       if (options.mode === 'patch') {
-        await this.updateMeal(options.mealId, editedItems);
+        await this.updateMeal(options.mealId, editedItems, editor.getMealCategory());
       } else if (options.mode === 'confirm') {
         const confirmPayload = {
           input_method: options.inputMethod,
           original_text: options.originalText || "",
           transcription_text: options.transcriptionText,
-          meal_category: options.mealCategory,
+          meal_category: editor.getMealCategory(),
           meal_items: editedItems
         };
         if (this.isLoading) return;
@@ -419,7 +421,8 @@ async function handleRecord() {
             originalText: previewData.original_text,
             transcriptionText: previewData.transcription_text,
             showTranscription: true,
-            transcription: previewData.transcription_text
+            transcription: previewData.transcription_text,
+            mealCategory: deriveMealCategoryFromTime()
           });
           recordBtn.textContent = '🎤 Record';
           recordBtn.disabled = false;

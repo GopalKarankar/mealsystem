@@ -47,3 +47,14 @@ function formatISO(date) {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+function deriveMealCategoryFromTime(date = new Date()) {
+  const hour = date.getHours();
+  if (hour >= 5 && hour < 7) return 'early_morning';
+  if (hour >= 7 && hour < 10) return 'breakfast';
+  if (hour >= 10 && hour < 12) return 'mid_morning';
+  if (hour >= 12 && hour < 14) return 'lunch';
+  if (hour >= 14 && hour < 17) return 'afternoon_snack';
+  if (hour >= 17 && hour < 21) return 'dinner';
+  return 'bedtime';
+}

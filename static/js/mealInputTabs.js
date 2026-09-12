@@ -205,7 +205,8 @@ async function handleTypeSubmit() {
     dashboard.openMealEditorModal(response.items, {
       mode: 'confirm',
       inputMethod: 'text',
-      originalText: text
+      originalText: text,
+      mealCategory: deriveMealCategoryFromTime()
     });
     typeTextarea.value = '';
     typeStatus.textContent = '';
@@ -237,7 +238,8 @@ async function handlePhotoSubmit() {
       mode: 'confirm',
       inputMethod: 'image',
       originalText: response.original_text,
-      transcriptionText: response.transcription_text
+      transcriptionText: response.transcription_text,
+      mealCategory: deriveMealCategoryFromTime()
     });
     clearPhotoSelection();
     photoStatus.textContent = '';

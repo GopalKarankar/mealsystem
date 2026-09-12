@@ -43,6 +43,16 @@ class MealItemsEditor {
       ...options
     };
     this.unitOptions = ["g", "kg", "ml", "l", "oz", "cup", "bowl", "plate", "piece", "serving"];
+    this.mealCategory = options.mealCategory || deriveMealCategoryFromTime();
+    this.categoryOptions = [
+      { value: 'early_morning', label: 'Early Morning' },
+      { value: 'breakfast', label: 'Breakfast' },
+      { value: 'mid_morning', label: 'Mid-Morning' },
+      { value: 'lunch', label: 'Lunch' },
+      { value: 'afternoon_snack', label: 'Afternoon Snack' },
+      { value: 'dinner', label: 'Dinner' },
+      { value: 'bedtime', label: 'Bedtime' }
+    ];
   }
 
   render() {
@@ -56,6 +66,15 @@ class MealItemsEditor {
             <p style="margin: 0; color: #546E7A;">${escapeHtml(this.options.transcription)}</p>
           </div>
         ` : ""}
+
+        <div style="margin-bottom: 16px;">
+          <label for="meal-category-select" style="display: block; font-weight: 700; margin-bottom: 8px;">
+            Meal Time
+          </label>
+          <select id="meal-category-select" style="width: 100%; padding: 8px; border: 1px solid #E0E0E0; border-radius: 4px; font-family: inherit; font-size: inherit;">
+            ${this.categoryOptions.map(opt => `<option value="${opt.value}" ${opt.value === this.mealCategory ? "selected" : ""}>${opt.label}</option>`).join("")}
+          </select>
+        </div>
 
         <div style="margin-bottom: 16px;">
           <label style="display: block; font-weight: 700; margin-bottom: 8px;">
@@ -159,6 +178,11 @@ class MealItemsEditor {
       });
     });
     return items;
+  }
+
+  getMealCategory() {
+    const select = document.querySelector("#meal-category-select");
+    return select ? select.value : this.mealCategory;
   }
 
   wireLiveRecalc(modal) {
