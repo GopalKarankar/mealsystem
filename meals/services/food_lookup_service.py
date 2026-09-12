@@ -249,8 +249,10 @@ def rescale_item_macros(base_macros: dict, *, old_quantity: float, old_unit: str
     """Proportionally scale base_macros (server-authoritative, e.g. a stored MealItem's values)
     from (old_quantity, old_unit) to (new_quantity, new_unit). Same-unit edits (including
     count-based units like piece/serving) scale by quantity ratio directly. A unit change
-    requires both units to have a known gram equivalent. Returns None if the scale can't be
-    determined — caller must fall back to a fresh lookup."""
+    between two gram-convertible units scales by grams; when both units are non-convertible
+    (e.g. piece <-> serving), falls back to a pure quantity-ratio scale as an approximation.
+    Returns None if the scale can't be determined (e.g. one side gram-convertible, other not) —
+    caller must fall back to a fresh lookup."""
     old_unit = str(old_unit).lower()
     new_unit = str(new_unit).lower()
     if old_quantity <= 0:
@@ -261,9 +263,17 @@ def rescale_item_macros(base_macros: dict, *, old_quantity: float, old_unit: str
     else:
         old_grams = get_gram_equivalent(old_unit)
         new_grams = get_gram_equivalent(new_unit)
-        if not old_grams or not new_grams:
+        if not old_grams and not new_grams:
+            # Neither unit has a known gram weight (e.g. piece <-> serving) — no real
+            # conversion exists between the two labels, so fall back to a pure
+            # quantity-ratio scale, same as the same-unit case above.
+            scale = new_quantity / old_quantity
+        elif not old_grams or not new_grams:
+            # Exactly one side is weight-convertible and the other isn't (e.g. piece -> g)
+            # — genuinely ambiguous; caller falls back to a fresh lookup.
             return None
-        scale = (new_quantity * new_grams) / (old_quantity * old_grams)
+        else:
+            scale = (new_quantity * new_grams) / (old_quantity * old_grams)
 
     return {k: base_macros.get(k, 0) * scale for k in
             ("calories", "protein_g", "carbs_g", "fats_g", "fiber_g")}

@@ -17,14 +17,20 @@ function previewScaledMacros(baseItem, newQuantity, newUnit) {
   } else {
     const oldG = GRAM_EQUIVALENTS[baseItem.unit];
     const newG = GRAM_EQUIVALENTS[newUnit];
-    if (!oldG || !newG) return null;
-    scale = (newQuantity * newG) / (baseItem.quantity * oldG);
+    if (!oldG && !newG) {
+      scale = newQuantity / baseItem.quantity;
+    } else if (!oldG || !newG) {
+      return null;
+    } else {
+      scale = (newQuantity * newG) / (baseItem.quantity * oldG);
+    }
   }
   return {
     calories: baseItem.calories * scale,
     protein_g: baseItem.protein_g * scale,
     carbs_g: baseItem.carbs_g * scale,
-    fats_g: baseItem.fats_g * scale
+    fats_g: baseItem.fats_g * scale,
+    fiber_g: baseItem.fiber_g * scale
   };
 }
 
@@ -173,6 +179,7 @@ class MealItemsEditor {
 
         const scaled = previewScaledMacros(baseItem, newQty, newUnit);
         if (scaled) {
+          this.items[idx] = { ...this.items[idx], ...scaled };
           const preview = row.querySelector(".item-macro-preview");
           if (preview) {
             preview.textContent = `${Math.round(scaled.calories)} kcal | P: ${scaled.protein_g.toFixed(1)}g C: ${scaled.carbs_g.toFixed(1)}g F: ${scaled.fats_g.toFixed(1)}g`;

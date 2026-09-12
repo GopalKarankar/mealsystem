@@ -548,8 +548,9 @@ class TestRescaleItemMacros:
         assert result is not None
         assert result["calories"] == pytest.approx(200.0)
 
-    def test_rescale_unit_change_piece_to_serving_fails(self):
-        """Unit change from piece (count) to serving (count). Both unconvertible → None."""
+    def test_rescale_unit_change_piece_to_serving_uses_quantity_ratio(self):
+        """Unit change from piece (count) to serving (count). Neither is gram-convertible,
+        so fall back to a pure quantity-ratio scale (2 piece -> 1 serving = 0.5x)."""
         base_macros = {
             "calories": 100.0, "protein_g": 5.0, "carbs_g": 20.0,
             "fats_g": 3.0, "fiber_g": 1.0
@@ -558,7 +559,12 @@ class TestRescaleItemMacros:
             base_macros, old_quantity=2, old_unit="piece",
             new_quantity=1, new_unit="serving"
         )
-        assert result is None
+        assert result is not None
+        assert result["calories"] == pytest.approx(50.0)
+        assert result["protein_g"] == pytest.approx(2.5)
+        assert result["carbs_g"] == pytest.approx(10.0)
+        assert result["fats_g"] == pytest.approx(1.5)
+        assert result["fiber_g"] == pytest.approx(0.5)
 
     def test_rescale_unit_change_piece_to_g_fails(self):
         """Unit change from piece (count, no gram equiv) to g. Piece is unconvertible → None."""
