@@ -3,6 +3,32 @@ from .llm_service import parse_meal, LLMServiceError
 
 logger = logging.getLogger(__name__)
 
+DIVERGENCE_THRESHOLD = 0.20  # 20% — trigger refinement if LLM vs DB estimates diverge beyond this
+
+
+def items_diverge(llm_item: dict, db_item: dict, threshold: float = DIVERGENCE_THRESHOLD) -> bool:
+	"""
+	Check if two macro estimates (LLM and DB-matched) diverge beyond a threshold.
+	Compares calories, protein_g, carbs_g, fats_g as relative percent differences.
+	Returns True if any field exceeds the threshold, False otherwise.
+	"""
+	epsilon = 1.0  # Avoid division by zero on very small values
+	fields = ["calories", "protein_g", "carbs_g", "fats_g"]
+
+	for field in fields:
+		llm_val = llm_item.get(field, 0)
+		db_val = db_item.get(field, 0)
+
+		if db_val > 0:
+			diff_pct = abs(llm_val - db_val) / max(db_val, epsilon)
+			if diff_pct > threshold:
+				logger.debug(
+					f"Divergence on {field}: LLM={llm_val}, DB={db_val}, diff={diff_pct:.1%}"
+				)
+				return True
+
+	return False
+
 
 def validate_macros(meal_items: list[dict]) -> dict:
     """

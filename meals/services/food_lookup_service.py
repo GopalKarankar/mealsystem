@@ -234,6 +234,86 @@ def resolve_item_macros(item: dict) -> dict:
     return item
 
 
+def resolve_and_refine_item(item: dict) -> dict:
+	"""
+	Resolve food item nutrition (IFCT → USDA → LLM) then optionally refine via Groq LLM
+	if the DB match diverges significantly from the original LLM estimate.
+
+	Args:
+		item: Dict with item_name, serving_size_grams, quantity, unit, calories,
+			  protein_g, carbs_g, fats_g, fiber_g (from parsed/confirmed meal item)
+
+	Returns:
+		item (dict) with resolved and possibly refined macros
+	"""
+	from .nutrition_service import items_diverge
+	from .llm_service import refine_meal_item, LLMServiceError
+
+	# Snapshot the original (pre-lookup) LLM estimate
+	llm_estimate = {
+		"calories": item.get("calories", 0),
+		"protein_g": item.get("protein_g", 0),
+		"carbs_g": item.get("carbs_g", 0),
+		"fats_g": item.get("fats_g", 0),
+		"fiber_g": item.get("fiber_g", 0),
+	}
+
+	# Resolve via IFCT/USDA/LLM (standard flow)
+	resolved_item = resolve_item_macros(item)
+
+	# Check if a DB match was found (resolve_item_macros sets source to "ifct"/"usda_fdc" on match)
+	db_match_found = resolved_item.get("source") in ("ifct", "usda_fdc")
+	if not db_match_found:
+		# No DB match, nothing to refine against — return as-is
+		return resolved_item
+
+	# Check if the DB match diverges significantly from the LLM estimate
+	db_values = {
+		"calories": resolved_item.get("calories", 0),
+		"protein_g": resolved_item.get("protein_g", 0),
+		"carbs_g": resolved_item.get("carbs_g", 0),
+		"fats_g": resolved_item.get("fats_g", 0),
+		"fiber_g": resolved_item.get("fiber_g", 0),
+	}
+
+	if not items_diverge(llm_estimate, db_values):
+		# Estimates agree (within threshold) — no need for refinement
+		return resolved_item
+
+	# Estimates diverge — call Groq refinement to reconcile
+	try:
+		refined_macros = refine_meal_item(
+			item_name=resolved_item.get("item_name", ""),
+			quantity=resolved_item.get("quantity", 0),
+			unit=resolved_item.get("unit", ""),
+			llm_estimate=llm_estimate,
+			db_match=db_values,
+			db_source=resolved_item.get("source", "unknown"),
+		)
+
+		# Apply refined values to the item
+		resolved_item["calories"] = refined_macros["calories"]
+		resolved_item["protein_g"] = refined_macros["protein_g"]
+		resolved_item["carbs_g"] = refined_macros["carbs_g"]
+		resolved_item["fats_g"] = refined_macros["fats_g"]
+		resolved_item["fiber_g"] = refined_macros["fiber_g"]
+		resolved_item["confidence"] = max(refined_macros["confidence"], 0.90)
+		# Keep source as-is (still "ifct"/"usda_fdc", but values are LLM-reconciled)
+
+		logger.info(
+			"Refined macros for %s: LLM vs DB diverged; reconciliation complete.",
+			resolved_item.get("item_name", ""),
+		)
+
+	except LLMServiceError as e:
+		logger.warning(
+			"Refinement LLM call failed for %s (using DB match unchanged): %s",
+			resolved_item.get("item_name", ""),
+			e,
+		)
+		# Fall back to the DB-matched values unchanged
+
+	return resolved_item
 
 
 def needs_fresh_lookup(old_name: str, new_name: str, threshold: float = 0.85) -> bool:

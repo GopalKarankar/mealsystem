@@ -7,7 +7,7 @@ from .whisper_service import transcribe
 from .llm_service import parse_meal, LLMServiceError
 from .nutrition_service import validate_macros
 from .vision_service import scan_image
-from .food_lookup_service import resolve_item_macros, needs_fresh_lookup, rescale_item_macros
+from .food_lookup_service import resolve_item_macros, resolve_and_refine_item, needs_fresh_lookup, rescale_item_macros
 from .units import normalize_unit
 from ..models import Meal, MealItem
 
@@ -150,7 +150,7 @@ def _resolve_and_validate_items(raw_items: list[dict]) -> tuple[list[dict], list
             logger.warning("Error validating item %r: %s", raw, e)
             item_name = raw.get("item_name", "an item")
             drop_warnings.append(f"Could not add '{item_name}': unexpected error")
-    validated = [resolve_item_macros(v) for v in validated]
+    validated = [resolve_and_refine_item(v) for v in validated]
     result = validate_macros(validated)
     return result["corrected_items"], drop_warnings + result["warnings"]
 
@@ -236,8 +236,9 @@ def _parse_image_to_items(image_path: str) -> dict:
 
 def resolve_confirmed_items(items: list[dict]) -> tuple[list[dict], list[str]]:
     """Used by ConfirmMealView: re-resolve macros fresh for every item (never trusts
-    client-sent macro fields), then run the calorie sanity check."""
-    resolved = [resolve_item_macros(dict(item)) for item in items]
+    client-sent macro fields), optionally refine if DB estimates diverge from LLM values,
+    then run the calorie sanity check."""
+    resolved = [resolve_and_refine_item(dict(item)) for item in items]
     result = validate_macros(resolved)
     return result["corrected_items"], result["warnings"]
 

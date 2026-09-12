@@ -55,6 +55,127 @@ If the transcript does not clearly describe any food or drink, return: []
 
 Do not invent items that were not mentioned."""
 
+REFINEMENT_PROMPT = """You are a nutrition data reconciliation assistant. You are given two independent nutrition
+estimates for a single food item:
+1. An LLM-generated estimate (possibly vague or off due to transcription/context loss)
+2. A matched database record from IFCT (Indian Food Composition Tables) or USDA FoodData Central
+
+Your task: Return the most plausible final nutrition values, reconciling or blending the two estimates
+as appropriate given the food name, quantity, and unit context. You are the final judge — pick the
+best values for this specific serving.
+
+Return ONLY a valid JSON object, no markdown, no explanation, no surrounding text.
+Fields must be: calories (number >= 0), protein_g (number >= 0), carbs_g (number >= 0),
+fats_g (number >= 0), fiber_g (number >= 0), confidence (number 0-1).
+
+All values must be valid numbers (not null, not strings) and confidence must be 0 <= confidence <= 1.
+If you cannot reconcile (contradictory info), pick the more reliable source (prefer DB match over vague LLM)."""
+
+
+def refine_meal_item(
+	item_name: str,
+	quantity: float,
+	unit: str,
+	llm_estimate: dict,
+	db_match: dict,
+	db_source: str,
+) -> dict:
+	"""
+	Reconcile LLM estimate vs. DB-matched nutrition via Groq LLM.
+	Returns refined macro dict (calories, protein_g, carbs_g, fats_g, fiber_g, confidence)
+	with schema validation. Raises LLMServiceError on any API/validation failure.
+
+	Args:
+		item_name: Food item name (for context)
+		quantity: Quantity value
+		unit: Unit (piece, g, ml, etc.)
+		llm_estimate: Dict with calories, protein_g, carbs_g, fats_g, fiber_g
+		db_match: Dict with calories, protein_g, carbs_g, fats_g, fiber_g
+		db_source: "ifct" or "usda_fdc" (for context in the prompt)
+
+	Returns:
+		Dict with refined macros and confidence
+
+	Raises:
+		LLMServiceError: If Groq API fails, returns invalid JSON, or validation fails
+	"""
+	user_prompt = f"""Food: {quantity} {unit} of {item_name}
+Database match source: {db_source}
+
+LLM estimate:
+{{
+  "calories": {llm_estimate.get('calories', 0)},
+  "protein_g": {llm_estimate.get('protein_g', 0)},
+  "carbs_g": {llm_estimate.get('carbs_g', 0)},
+  "fats_g": {llm_estimate.get('fats_g', 0)},
+  "fiber_g": {llm_estimate.get('fiber_g', 0)}
+}}
+
+Database match ({db_source}):
+{{
+  "calories": {db_match.get('calories', 0)},
+  "protein_g": {db_match.get('protein_g', 0)},
+  "carbs_g": {db_match.get('carbs_g', 0)},
+  "fats_g": {db_match.get('fats_g', 0)},
+  "fiber_g": {db_match.get('fiber_g', 0)}
+}}
+
+Return your best reconciled estimate as JSON only."""
+
+	try:
+		client = Groq(api_key=settings.GROQ_API_KEY, timeout=20.0, max_retries=0)
+
+		response = client.chat.completions.create(
+			model=settings.LLM_MODEL,
+			messages=[
+				{"role": "system", "content": REFINEMENT_PROMPT},
+				{"role": "user", "content": user_prompt},
+			],
+			temperature=0.3,  # Lower temp for reconciliation (more deterministic)
+			top_p=0.9,
+		)
+
+		content = response.choices[0].message.content.strip()
+
+		# Strip markdown fences (same as parse_meal)
+		content = re.sub(r'^```(?:json)?\n?', '', content)
+		content = re.sub(r'\n?```$', '', content)
+		content = content.strip()
+
+		try:
+			refined = json.loads(content)
+			if not isinstance(refined, dict):
+				raise ValueError("Response is not a JSON object")
+		except json.JSONDecodeError as e:
+			logger.error("Failed to parse refinement JSON from LLM: %s", e)
+			raise LLMServiceError(f"Refinement LLM returned invalid JSON: {e}")
+
+		# Schema and range validation (untrusted model output)
+		required_fields = ["calories", "protein_g", "carbs_g", "fats_g", "fiber_g", "confidence"]
+		for field in required_fields:
+			if field not in refined:
+				raise LLMServiceError(f"Refinement response missing required field: {field}")
+			val = refined[field]
+			if not isinstance(val, (int, float)):
+				raise LLMServiceError(f"Field {field} is not numeric: {val}")
+			if val < 0:
+				raise LLMServiceError(f"Field {field} is negative: {val}")
+
+		# Confidence must be in [0, 1]
+		if not (0 <= refined["confidence"] <= 1):
+			raise LLMServiceError(f"Confidence out of range [0,1]: {refined['confidence']}")
+
+		return refined
+
+	except GroqError as e:
+		logger.error("Groq API error during refinement: %s", e)
+		raise LLMServiceError(f"Refinement LLM service error: {e}")
+	except LLMServiceError:
+		raise  # Re-raise validation errors as-is
+	except Exception as e:
+		logger.error("Unexpected error in refinement service: %s", e)
+		raise LLMServiceError(f"Unexpected refinement error: {e}")
+
 
 def parse_meal(transcript: str) -> list[dict]:
     """
