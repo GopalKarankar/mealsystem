@@ -247,15 +247,23 @@ def needs_fresh_lookup(old_name: str, new_name: str, threshold: float = 0.85) ->
 def rescale_item_macros(base_macros: dict, *, old_quantity: float, old_unit: str,
                          new_quantity: float, new_unit: str) -> dict | None:
     """Proportionally scale base_macros (server-authoritative, e.g. a stored MealItem's values)
-    from (old_quantity, old_unit) to (new_quantity, new_unit). Returns None if either unit is
-    unconvertible or old_quantity*old_grams <= 0 — caller must fall back to a fresh lookup."""
-    old_grams = get_gram_equivalent(old_unit)
-    new_grams = get_gram_equivalent(new_unit)
-    if not old_grams or not new_grams:
+    from (old_quantity, old_unit) to (new_quantity, new_unit). Same-unit edits (including
+    count-based units like piece/serving) scale by quantity ratio directly. A unit change
+    requires both units to have a known gram equivalent. Returns None if the scale can't be
+    determined — caller must fall back to a fresh lookup."""
+    old_unit = str(old_unit).lower()
+    new_unit = str(new_unit).lower()
+    if old_quantity <= 0:
         return None
-    old_total = old_quantity * old_grams
-    if old_total <= 0:
-        return None
-    scale = (new_quantity * new_grams) / old_total
+
+    if old_unit == new_unit:
+        scale = new_quantity / old_quantity
+    else:
+        old_grams = get_gram_equivalent(old_unit)
+        new_grams = get_gram_equivalent(new_unit)
+        if not old_grams or not new_grams:
+            return None
+        scale = (new_quantity * new_grams) / (old_quantity * old_grams)
+
     return {k: base_macros.get(k, 0) * scale for k in
             ("calories", "protein_g", "carbs_g", "fats_g", "fiber_g")}

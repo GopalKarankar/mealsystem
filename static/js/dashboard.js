@@ -142,6 +142,7 @@ class Dashboard {
     const addItemBtn = modal.querySelector("#add-item-btn");
 
     this.wireDeleteButtons(modal, editor);
+    editor.wireLiveRecalc(modal);
 
     cancelBtn.onclick = () => {
       modal.remove();
@@ -302,6 +303,14 @@ class Dashboard {
               ${Math.round(meal.confidence_score * 100)}%
             </span>
           </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px;">
+          ${meal.meal_items.map(item => `
+            <div style="display: flex; justify-content: space-between; font-size: 13px;">
+              <span class="text-heading">${escapeHtml(item.item_name)} <span class="text-body">(${formatNumber(item.quantity, item.quantity % 1 === 0 ? 0 : 1)} ${item.unit})</span></span>
+              <span class="text-body">${formatNumber(item.calories)} kcal · P ${formatNumber(item.protein_g, 1)}g · C ${formatNumber(item.carbs_g, 1)}g · F ${formatNumber(item.fats_g, 1)}g</span>
+            </div>
+          `).join('')}
         </div>
         <div class="grid grid-cols-3 gap-2 mb-3 text-sm">
           <div>

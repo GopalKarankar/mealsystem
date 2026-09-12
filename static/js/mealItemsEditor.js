@@ -1,8 +1,32 @@
 /**
  * MealItemsEditor: Shared UI for editing meal items (pre-save review or post-save edit).
  * Renders editable rows: name (text), quantity (number), unit (select).
- * Macros displayed as read-only.
+ * Macros displayed as read-only, with live preview as quantity/unit change.
  */
+
+const GRAM_EQUIVALENTS = {
+  g: 1, kg: 1000, ml: 1, l: 1000, oz: 28.3495,
+  cup: 240, bowl: 400, plate: 300, piece: null, serving: null
+};
+
+function previewScaledMacros(baseItem, newQuantity, newUnit) {
+  if (!(newQuantity > 0)) return null;
+  let scale;
+  if (baseItem.unit === newUnit) {
+    scale = newQuantity / baseItem.quantity;
+  } else {
+    const oldG = GRAM_EQUIVALENTS[baseItem.unit];
+    const newG = GRAM_EQUIVALENTS[newUnit];
+    if (!oldG || !newG) return null;
+    scale = (newQuantity * newG) / (baseItem.quantity * oldG);
+  }
+  return {
+    calories: baseItem.calories * scale,
+    protein_g: baseItem.protein_g * scale,
+    carbs_g: baseItem.carbs_g * scale,
+    fats_g: baseItem.fats_g * scale
+  };
+}
 
 class MealItemsEditor {
   constructor(items = [], options = {}) {
@@ -73,7 +97,7 @@ class MealItemsEditor {
         <select class="item-unit-select" style="padding: 8px; border: 1px solid #E0E0E0; border-radius: 4px; font-family: inherit; font-size: inherit;">
           ${this.unitOptions.map(u => `<option value="${u}" ${u === item.unit ? "selected" : ""}>${u}</option>`).join("")}
         </select>
-        <div style="font-size: 12px; color: #546E7A;">
+        <div class="item-macro-preview" style="font-size: 12px; color: #546E7A;">
           ${Math.round(item.calories)} kcal | P: ${item.protein_g.toFixed(1)}g C: ${item.carbs_g.toFixed(1)}g F: ${item.fats_g.toFixed(1)}g
         </div>
         <button type="button" class="item-delete-btn" data-idx="${idx}" style="background: none; border: none; cursor: ${isLastItem ? 'not-allowed' : 'pointer'}; padding: 4px; font-size: 18px; color: ${isLastItem ? '#CCCCCC' : '#D64444'}; opacity: ${isLastItem ? '0.5' : '1'}; transition: opacity 0.2s;" ${isLastItem ? 'disabled' : ''}>×</button>
@@ -129,6 +153,33 @@ class MealItemsEditor {
       });
     });
     return items;
+  }
+
+  wireLiveRecalc(modal) {
+    const itemsList = modal.querySelector("#items-list");
+    if (!itemsList) return;
+
+    itemsList.addEventListener("input", (e) => {
+      if (e.target.classList.contains("item-qty-input") || e.target.classList.contains("item-unit-select")) {
+        const row = e.target.closest(".item-row");
+        if (!row) return;
+
+        const idx = parseInt(row.dataset.idx);
+        const baseItem = this.items[idx];
+        if (!baseItem) return;
+
+        const newQty = parseFloat(row.querySelector(".item-qty-input").value);
+        const newUnit = row.querySelector(".item-unit-select").value;
+
+        const scaled = previewScaledMacros(baseItem, newQty, newUnit);
+        if (scaled) {
+          const preview = row.querySelector(".item-macro-preview");
+          if (preview) {
+            preview.textContent = `${Math.round(scaled.calories)} kcal | P: ${scaled.protein_g.toFixed(1)}g C: ${scaled.carbs_g.toFixed(1)}g F: ${scaled.fats_g.toFixed(1)}g`;
+          }
+        }
+      }
+    });
   }
 
   mount(selector) {

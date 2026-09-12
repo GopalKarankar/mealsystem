@@ -9,6 +9,7 @@ from meals.services.food_lookup_service import (
     lookup_ifct,
     lookup_usda,
     resolve_item_macros,
+    rescale_item_macros,
 )
 
 
@@ -467,3 +468,143 @@ class TestResolveItemMacros:
 
         result = resolve_item_macros(item)
         assert result == item
+
+
+class TestRescaleItemMacros:
+    """Test the rescale_item_macros function for editing saved items."""
+
+    def test_rescale_same_unit_serving(self):
+        """Same unit (serving), quantity 1 → 3. Scale = 3."""
+        base_macros = {
+            "calories": 100.0, "protein_g": 5.0, "carbs_g": 20.0,
+            "fats_g": 3.0, "fiber_g": 1.0
+        }
+        result = rescale_item_macros(
+            base_macros, old_quantity=1, old_unit="serving",
+            new_quantity=3, new_unit="serving"
+        )
+        assert result is not None
+        assert result["calories"] == pytest.approx(300.0)
+        assert result["protein_g"] == pytest.approx(15.0)
+        assert result["carbs_g"] == pytest.approx(60.0)
+        assert result["fats_g"] == pytest.approx(9.0)
+        assert result["fiber_g"] == pytest.approx(3.0)
+
+    def test_rescale_same_unit_piece(self):
+        """Same unit (piece), count-based rescale works. 2 pieces → 5 pieces, scale = 2.5."""
+        base_macros = {
+            "calories": 80.0, "protein_g": 4.0, "carbs_g": 15.0,
+            "fats_g": 2.0, "fiber_g": 0.5
+        }
+        result = rescale_item_macros(
+            base_macros, old_quantity=2, old_unit="piece",
+            new_quantity=5, new_unit="piece"
+        )
+        assert result is not None
+        assert result["calories"] == pytest.approx(200.0)
+        assert result["protein_g"] == pytest.approx(10.0)
+        assert result["carbs_g"] == pytest.approx(37.5)
+        assert result["fats_g"] == pytest.approx(5.0)
+        assert result["fiber_g"] == pytest.approx(1.25)
+
+    def test_rescale_same_unit_gram(self):
+        """Same unit (g), quantity 100 → 150. Scale = 1.5."""
+        base_macros = {
+            "calories": 130.0, "protein_g": 2.7, "carbs_g": 28.0,
+            "fats_g": 0.3, "fiber_g": 0.4
+        }
+        result = rescale_item_macros(
+            base_macros, old_quantity=100, old_unit="g",
+            new_quantity=150, new_unit="g"
+        )
+        assert result is not None
+        assert result["calories"] == pytest.approx(195.0)
+        assert result["protein_g"] == pytest.approx(4.05)
+        assert result["carbs_g"] == pytest.approx(42.0)
+
+    def test_rescale_different_unit_g_to_oz(self):
+        """Unit change g → oz, both convertible. 100g → 1oz."""
+        base_macros = {
+            "calories": 130.0, "protein_g": 2.7, "carbs_g": 28.0,
+            "fats_g": 0.3, "fiber_g": 0.4
+        }
+        result = rescale_item_macros(
+            base_macros, old_quantity=100, old_unit="g",
+            new_quantity=1, new_unit="oz"
+        )
+        assert result is not None
+        assert result["calories"] == pytest.approx(130 * (1 * 28.3495) / (100 * 1))
+
+    def test_rescale_different_unit_cup_to_ml(self):
+        """Unit change cup → ml, both convertible. 1 cup → 240ml (same serving size)."""
+        base_macros = {
+            "calories": 200.0, "protein_g": 8.0, "carbs_g": 40.0,
+            "fats_g": 5.0, "fiber_g": 2.0
+        }
+        result = rescale_item_macros(
+            base_macros, old_quantity=1, old_unit="cup",
+            new_quantity=240, new_unit="ml"
+        )
+        assert result is not None
+        assert result["calories"] == pytest.approx(200.0)
+
+    def test_rescale_unit_change_piece_to_serving_fails(self):
+        """Unit change from piece (count) to serving (count). Both unconvertible → None."""
+        base_macros = {
+            "calories": 100.0, "protein_g": 5.0, "carbs_g": 20.0,
+            "fats_g": 3.0, "fiber_g": 1.0
+        }
+        result = rescale_item_macros(
+            base_macros, old_quantity=2, old_unit="piece",
+            new_quantity=1, new_unit="serving"
+        )
+        assert result is None
+
+    def test_rescale_unit_change_piece_to_g_fails(self):
+        """Unit change from piece (count, no gram equiv) to g. Piece is unconvertible → None."""
+        base_macros = {
+            "calories": 100.0, "protein_g": 5.0, "carbs_g": 20.0,
+            "fats_g": 3.0, "fiber_g": 1.0
+        }
+        result = rescale_item_macros(
+            base_macros, old_quantity=1, old_unit="piece",
+            new_quantity=100, new_unit="g"
+        )
+        assert result is None
+
+    def test_rescale_zero_quantity_fails(self):
+        """Old quantity = 0 (div by zero risk) → None."""
+        base_macros = {
+            "calories": 100.0, "protein_g": 5.0, "carbs_g": 20.0,
+            "fats_g": 3.0, "fiber_g": 1.0
+        }
+        result = rescale_item_macros(
+            base_macros, old_quantity=0, old_unit="g",
+            new_quantity=100, new_unit="g"
+        )
+        assert result is None
+
+    def test_rescale_negative_quantity_fails(self):
+        """Negative old quantity → None."""
+        base_macros = {
+            "calories": 100.0, "protein_g": 5.0, "carbs_g": 20.0,
+            "fats_g": 3.0, "fiber_g": 1.0
+        }
+        result = rescale_item_macros(
+            base_macros, old_quantity=-1, old_unit="g",
+            new_quantity=100, new_unit="g"
+        )
+        assert result is None
+
+    def test_rescale_case_insensitive_unit(self):
+        """Units are normalized to lowercase before comparison."""
+        base_macros = {
+            "calories": 100.0, "protein_g": 5.0, "carbs_g": 20.0,
+            "fats_g": 3.0, "fiber_g": 1.0
+        }
+        result = rescale_item_macros(
+            base_macros, old_quantity=1, old_unit="SERVING",
+            new_quantity=2, new_unit="Serving"
+        )
+        assert result is not None
+        assert result["calories"] == pytest.approx(200.0)
