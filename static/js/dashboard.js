@@ -308,11 +308,11 @@ class Dashboard {
           ${meal.meal_items.map(item => `
             <div style="display: flex; justify-content: space-between; font-size: 13px;">
               <span class="text-heading">${escapeHtml(item.item_name)} <span class="text-body">(${formatNumber(item.quantity, item.quantity % 1 === 0 ? 0 : 1)} ${item.unit})</span></span>
-              <span class="text-body">${formatNumber(item.calories)} kcal · P ${formatNumber(item.protein_g, 1)}g · C ${formatNumber(item.carbs_g, 1)}g · F ${formatNumber(item.fats_g, 1)}g</span>
+              <span class="text-body">${formatNumber(item.calories)} kcal · P ${formatNumber(item.protein_g, 1)}g · C ${formatNumber(item.carbs_g, 1)}g · F ${formatNumber(item.fats_g, 1)}g · Fiber ${formatNumber(item.fiber_g, 1)}g</span>
             </div>
           `).join('')}
         </div>
-        <div class="grid grid-cols-3 gap-2 mb-3 text-sm">
+        <div class="grid grid-cols-5 gap-2 mb-3 text-sm">
           <div>
             <p class="text-body">Calories</p>
             <p class="font-semibold text-heading">${formatNumber(meal.totals.calories)}</p>
@@ -324,6 +324,14 @@ class Dashboard {
           <div>
             <p class="text-body">Carbs</p>
             <p class="font-semibold text-heading">${formatNumber(meal.totals.carbs_g, 1)}g</p>
+          </div>
+          <div>
+            <p class="text-body">Fats</p>
+            <p class="font-semibold text-heading">${formatNumber(meal.totals.fats_g, 1)}g</p>
+          </div>
+          <div>
+            <p class="text-body">Fiber</p>
+            <p class="font-semibold text-heading">${formatNumber(meal.totals.fiber_g, 1)}g</p>
           </div>
         </div>
         <div style="display: flex; gap: 12px;">
