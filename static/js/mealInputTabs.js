@@ -74,9 +74,8 @@ function initMealInputTabs() {
   }
 
   // Manual flow
-  const manualSubmitBtn = document.getElementById('manual-submit-btn');
-  if (manualSubmitBtn) {
-    manualSubmitBtn.addEventListener('click', handleManualSubmit);
+  if (document.getElementById('manual-meal-blocks')) {
+    initManualForm();
   }
 
   // Camera flow
@@ -375,38 +374,3 @@ async function useCameraPhoto() {
   photoSubmitBtn.focus();
 }
 
-async function handleManualSubmit() {
-  const foodName = document.getElementById('manual-food-name');
-  const remark = document.getElementById('manual-remark');
-  const category = document.getElementById('manual-category');
-  const status = document.getElementById('manual-status');
-  const submitBtn = document.getElementById('manual-submit-btn');
-
-  const name = foodName.value.trim();
-  if (!name) {
-    status.textContent = 'Please enter a food name';
-    return;
-  }
-
-  const text = remark.value.trim() ? `${name}, ${remark.value.trim()}` : name;
-
-  submitBtn.disabled = true;
-  status.textContent = 'Adding meal...';
-
-  try {
-    const response = await apiPost('/meals/text/preview', { text });
-    dashboard.openMealEditorModal(response.items, {
-      mode: 'confirm',
-      inputMethod: 'text',
-      originalText: text,
-      mealCategory: category.value
-    });
-    foodName.value = '';
-    remark.value = '';
-    status.textContent = '';
-    submitBtn.disabled = false;
-  } catch (error) {
-    status.textContent = error.body?.detail || error.message || 'Failed to add meal';
-    submitBtn.disabled = false;
-  }
-}

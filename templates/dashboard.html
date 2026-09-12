@@ -163,37 +163,25 @@
 
       <!-- Manual Panel -->
       <div id="panel-manual" role="tabpanel" aria-labelledby="tab-manual" class="input-panel hidden">
-        <div class="space-y-4">
-          <div>
-            <label for="manual-food-name" class="block text-sm font-medium text-heading mb-2">Food Name</label>
-            <input id="manual-food-name" type="text" placeholder="e.g. Chicken breast" maxlength="255"
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg text-heading focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2" />
-          </div>
-          <div>
-            <label for="manual-remark" class="block text-sm font-medium text-heading mb-2">Remark (optional)</label>
-            <input id="manual-remark" type="text" placeholder="e.g. grilled with olive oil" maxlength="255"
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg text-heading focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2" />
-          </div>
-          <div>
-            <label for="manual-category" class="block text-sm font-medium text-heading mb-2">Meal Category</label>
-            <select id="manual-category" class="w-full px-4 py-3 border border-gray-300 rounded-lg text-heading focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2">
-              <option value="early_morning">Early Morning</option>
-              <option value="breakfast">Breakfast</option>
-              <option value="mid_morning">Mid-Morning</option>
-              <option value="lunch" selected>Lunch</option>
-              <option value="afternoon_snack">Afternoon Snack</option>
-              <option value="dinner">Dinner</option>
-              <option value="bedtime">Bedtime</option>
-            </select>
-          </div>
-          <div class="flex items-center justify-between">
-            <div id="manual-status" class="text-sm text-body"></div>
-            <button id="manual-submit-btn" type="button"
-              class="px-6 py-3 min-h-11 bg-brand-orange text-white font-medium rounded-full shadow-card hover:shadow-hover hover:brightness-95 transition-all focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2">
-              Log Meal
-            </button>
-          </div>
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-lg" aria-hidden="true">🍴</span>
+          <h3 class="text-base font-semibold text-heading">Add Meals</h3>
         </div>
+        <hr class="border-t border-dashed border-gray-300 mb-4" />
+
+        <div id="manual-meal-blocks"></div>
+
+        <button id="manual-add-meal-btn" type="button"
+          class="mt-2 mb-6 flex items-center gap-1 text-brand-orange font-medium text-sm hover:underline focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 rounded">
+          <span aria-hidden="true">➕</span> Add Another Meal
+        </button>
+
+        <div id="manual-status" class="text-sm mb-3" role="status" aria-live="polite"></div>
+
+        <button id="manual-submit-btn" type="button"
+          class="w-full px-6 py-4 min-h-11 bg-brand-orange text-white font-semibold text-base rounded-full shadow-card hover:shadow-hover hover:brightness-95 transition-all focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+          <span aria-hidden="true">➕</span> Log Meal(s)
+        </button>
       </div>
     </div>
 
@@ -405,6 +393,7 @@
 <script src="/static/js/audioRecorder.js"></script>
 <script src="/static/js/cameraCapture.js"></script>
 <script src="/static/js/mealItemsEditor.js"></script>
+<script src="/static/js/mealManualForm.js"></script>
 <script src="/static/js/mealInputTabs.js"></script>
 <script src="/static/js/macroChart.js"></script>
 <script src="/static/js/dashboard.js"></script>
