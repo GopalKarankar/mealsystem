@@ -99,7 +99,6 @@
           role="button" tabindex="0" aria-label="Choose or drop a photo of your food">
           <p class="text-body text-sm">📷 Tap to choose a photo, or drag one here</p>
           <p class="text-body text-xs mt-1">Food photo, nutrition label, receipt, or menu</p>
-          <p class="text-body text-xs mt-1">📱 Works best with smartphone camera photos</p>
         </div>
 
         <div class="flex items-center gap-3 my-3" aria-hidden="true">
@@ -114,6 +113,10 @@
           class="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-brand-orange transition-colors focus:outline-none focus:ring-2 focus:ring-brand-orange focus:ring-offset-2 min-h-11">
           <p class="text-body text-sm">📸 Use Camera</p>
         </button>
+
+        <div class="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
+          <p class="text-sm font-medium text-error">⚠️ This feature works better with smartphone camera photos</p>
+        </div>
 
         <div id="photo-camera-view" class="hidden mt-3">
           <div class="relative rounded-lg overflow-hidden bg-black">
