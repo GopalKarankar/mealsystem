@@ -7,6 +7,8 @@ from pathlib import Path
 import requests
 from django.conf import settings
 
+from .units import ALLOWED_UNITS, get_gram_equivalent, normalize_unit
+
 logger = logging.getLogger(__name__)
 
 _IFCT_FOODS = None
@@ -232,16 +234,6 @@ def resolve_item_macros(item: dict) -> dict:
     return item
 
 
-ALLOWED_UNITS = {
-    "g": 1.0, "kg": 1000.0, "ml": 1.0, "l": 1000.0, "oz": 28.3495,
-    "cup": 240.0, "bowl": 400.0, "plate": 300.0,
-    "piece": None, "serving": None,
-}
-
-
-def get_gram_equivalent(unit: str) -> float | None:
-    """Approximate grams for one unit, or None if unconvertible (piece/serving)."""
-    return ALLOWED_UNITS.get(str(unit).lower())
 
 
 def needs_fresh_lookup(old_name: str, new_name: str, threshold: float = 0.85) -> bool:

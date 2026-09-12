@@ -311,7 +311,8 @@ class CreateMealVoicePreviewView(APIView):
             return Response({
                 "items": parsed["items"],
                 "original_text": parsed["original_text"],
-                "transcription_text": parsed["transcription_text"]
+                "transcription_text": parsed["transcription_text"],
+                "warnings": parsed.get("warnings", [])
             }, status=status.HTTP_200_OK)
 
         except Exception:
@@ -365,7 +366,8 @@ class CreateMealTextPreviewView(APIView):
         return Response({
             "items": parsed["items"],
             "original_text": parsed["original_text"],
-            "transcription_text": parsed["transcription_text"]
+            "transcription_text": parsed["transcription_text"],
+            "warnings": parsed.get("warnings", [])
         }, status=status.HTTP_200_OK)
 
 
@@ -437,7 +439,8 @@ class CreateMealImagePreviewView(APIView):
             return Response({
                 "items": parsed["items"],
                 "original_text": parsed["original_text"],
-                "transcription_text": parsed["transcription_text"]
+                "transcription_text": parsed["transcription_text"],
+                "warnings": parsed.get("warnings", [])
             }, status=status.HTTP_200_OK)
 
         except Exception:

@@ -8,6 +8,7 @@ from .llm_service import parse_meal, LLMServiceError
 from .nutrition_service import validate_macros
 from .vision_service import scan_image
 from .food_lookup_service import resolve_item_macros, needs_fresh_lookup, rescale_item_macros
+from .units import normalize_unit
 from ..models import Meal, MealItem
 
 logger = logging.getLogger(__name__)
@@ -130,19 +131,28 @@ def _resolve_and_validate_items(raw_items: list[dict]) -> tuple[list[dict], list
     """Validate each raw LLM item via MealItemCreateSerializer, resolve macros
     (IFCT/USDA/LLM-estimate), run the ±10% calorie sanity check. No DB write."""
     validated = []
+    drop_warnings = []
     for raw in raw_items:
         try:
             from ..serializers import MealItemCreateSerializer
-            serializer = MealItemCreateSerializer(data=raw)
+            normalized_raw = dict(raw)
+            if "unit" in normalized_raw:
+                normalized_raw["unit"] = normalize_unit(normalized_raw["unit"])
+            serializer = MealItemCreateSerializer(data=normalized_raw)
             if serializer.is_valid():
                 validated.append(serializer.validated_data)
             else:
                 logger.warning("Dropping unparseable item: %r, errors: %s", raw, serializer.errors)
+                item_name = raw.get("item_name", "an item")
+                error_fields = ", ".join(serializer.errors.keys())
+                drop_warnings.append(f"Could not add '{item_name}': invalid {error_fields}")
         except Exception as e:
             logger.warning("Error validating item %r: %s", raw, e)
+            item_name = raw.get("item_name", "an item")
+            drop_warnings.append(f"Could not add '{item_name}': unexpected error")
     validated = [resolve_item_macros(v) for v in validated]
     result = validate_macros(validated)
-    return result["corrected_items"], result["warnings"]
+    return result["corrected_items"], drop_warnings + result["warnings"]
 
 
 def _persist_meal(user, corrected_items: list[dict], *, original_text, transcription_text,
@@ -191,7 +201,7 @@ def _parse_audio_to_items(audio_path: str) -> dict:
             logger.warning("macro validation: %s", w)
         if not corrected_items:
             raise ValueError("No food items could be identified in the audio. Please try again with a clearer description of what you ate.")
-        return {"items": corrected_items, "original_text": transcript, "transcription_text": transcript}
+        return {"items": corrected_items, "original_text": transcript, "transcription_text": transcript, "warnings": warnings}
     finally:
         if os.path.exists(audio_path):
             os.remove(audio_path)
@@ -205,7 +215,7 @@ def _parse_text_to_items(text: str) -> dict:
         logger.warning("macro validation: %s", w)
     if not corrected_items:
         raise ValueError("No food items could be identified in the text. Please describe what you ate more specifically.")
-    return {"items": corrected_items, "original_text": text, "transcription_text": None}
+    return {"items": corrected_items, "original_text": text, "transcription_text": None, "warnings": warnings}
 
 
 def _parse_image_to_items(image_path: str) -> dict:
@@ -218,7 +228,7 @@ def _parse_image_to_items(image_path: str) -> dict:
             logger.warning("macro validation: %s", w)
         if not corrected_items:
             raise ValueError("No food items could be identified in the photo. Please try a clearer photo of the food, label, or menu.")
-        return {"items": corrected_items, "original_text": description, "transcription_text": description}
+        return {"items": corrected_items, "original_text": description, "transcription_text": description, "warnings": warnings}
     finally:
         if os.path.exists(image_path):
             os.remove(image_path)
